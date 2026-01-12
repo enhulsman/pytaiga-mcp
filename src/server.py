@@ -1,5 +1,4 @@
 # server.py
-import json
 import logging
 import logging.config
 import uuid
@@ -23,29 +22,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 # Quiet down pytaigaclient library logging if needed
 logging.getLogger("pytaigaclient").setLevel(logging.WARNING)
-
-# --- Helper Functions ---
-
-
-def _parse_mcp_kwargs(kwargs: dict) -> dict:
-    """Parse MCP kwargs which may be passed as a JSON string.
-
-    When FastMCP receives **kwargs in a tool function, it may pass
-    additional parameters as a JSON string under the 'kwargs' or 'filters' key.
-    This function handles that case and returns a proper dict.
-    """
-    if not kwargs:
-        return {}
-    # If kwargs contains a single key with a string value, parse it as JSON
-    if len(kwargs) == 1:
-        key = next(iter(kwargs))
-        if key in ("kwargs", "filters"):
-            val = kwargs[key]
-            if isinstance(val, str):
-                return json.loads(val) if val else {}
-            return val if isinstance(val, dict) else {}
-    return kwargs
-
 
 # --- Kwargs Validation ---
 # Allowed kwargs per resource type for security and validation
@@ -139,6 +115,11 @@ ALLOWED_KWARGS: Dict[str, set] = {
         "disponibility",
         "slug",
         "order",
+        "watchers",
+    },
+    "wiki_page": {
+        "content",
+        "slug",
         "watchers",
     },
 }
@@ -281,6 +262,25 @@ RESPONSE_FIELDS: Dict[str, Dict[str, Optional[List[str]]]] = {
     "wiki_page": {
         "minimal": ["id", "slug", "project"],
         "standard": ["id", "slug", "content", "project", "version"],
+        "full": None,
+    },
+    "milestone_stats": {
+        "minimal": ["total_points", "completed_points"],
+        "standard": [
+            "total_points",
+            "completed_points",
+            "total_userstories",
+            "completed_userstories",
+            "total_tasks",
+            "completed_tasks",
+            "iocaine_doses",
+            "days",
+        ],
+        "full": None,
+    },
+    "epic_related_user_story": {
+        "minimal": ["epic", "user_story", "order"],
+        "standard": ["epic", "user_story", "order"],
         "full": None,
     },
 }
@@ -654,13 +654,13 @@ def get_project_by_slug(
 def create_project(
     name: str,
     description: str,
-    kwargs: str = "{}",
+    kwargs: Optional[Dict[str, Any]] = None,
     session_id: Optional[str] = None,
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
-    """Creates a new project. Requires name and description. Optional args (e.g., is_private) via kwargs JSON string."""
+    """Creates a new project. Requires name and description. Optional args (e.g., is_private) via kwargs dict."""
     actual_session_id = _get_session_id(session_id)
-    parsed_kwargs = _validate_kwargs("project", _parse_mcp_kwargs({"kwargs": kwargs}))
+    parsed_kwargs = _validate_kwargs("project", kwargs or {})
     logger.info(
         f"Executing create_project '{name}' for session {actual_session_id[:8]} with data: {parsed_kwargs}"
     )
@@ -684,13 +684,13 @@ def create_project(
 )
 def update_project(
     project_id: int,
-    kwargs: str = "{}",
+    kwargs: Optional[Dict[str, Any]] = None,
     session_id: Optional[str] = None,
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
-    """Updates a project. Pass fields to update as kwargs JSON string (e.g., {"name": "New Name", "description": "New Desc"})."""
+    """Updates a project. Pass fields to update as kwargs dict (e.g., {"name": "New Name", "description": "New Desc"})."""
     actual_session_id = _get_session_id(session_id)
-    parsed_kwargs = _validate_kwargs("project", _parse_mcp_kwargs({"kwargs": kwargs}))
+    parsed_kwargs = _validate_kwargs("project", kwargs or {})
     logger.info(
         f"Executing update_project ID {project_id} for session {actual_session_id[:8]} with data: {parsed_kwargs}"
     )
@@ -753,13 +753,13 @@ def delete_project(project_id: int, session_id: Optional[str] = None) -> Dict[st
 )
 def list_user_stories(
     project_id: int,
-    filters: str = "{}",
+    filters: Optional[Dict[str, Any]] = None,
     session_id: Optional[str] = None,
     verbosity: str = "standard",
 ) -> List[Dict[str, Any]]:
     """Lists user stories for a project. Optional filters like 'milestone', 'status', 'assigned_to' can be passed as JSON string."""
     actual_session_id = _get_session_id(session_id)
-    parsed_filters = _parse_mcp_kwargs({"filters": filters})
+    parsed_filters = filters or {}
     logger.info(
         f"Executing list_user_stories for project {project_id}, session {actual_session_id[:8]}, filters: {parsed_filters}"
     )
@@ -780,13 +780,13 @@ def list_user_stories(
 def create_user_story(
     project_id: int,
     subject: str,
-    kwargs: str = "{}",
+    kwargs: Optional[Dict[str, Any]] = None,
     session_id: Optional[str] = None,
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
-    """Creates a user story. Requires project_id and subject. Optional fields (description, milestone_id, status_id, assigned_to_id, etc.) via kwargs JSON string."""
+    """Creates a user story. Requires project_id and subject. Optional fields (description, milestone_id, status_id, assigned_to_id, etc.) via kwargs dict."""
     actual_session_id = _get_session_id(session_id)
-    parsed_kwargs = _validate_kwargs("user_story", _parse_mcp_kwargs({"kwargs": kwargs}))
+    parsed_kwargs = _validate_kwargs("user_story", kwargs or {})
     logger.info(
         f"Executing create_user_story '{subject}' in project {project_id}, session {actual_session_id[:8]}..."
     )
@@ -832,13 +832,13 @@ def get_user_story(
 )
 def update_user_story(
     user_story_id: int,
-    kwargs: str = "{}",
+    kwargs: Optional[Dict[str, Any]] = None,
     session_id: Optional[str] = None,
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
-    """Updates a user story. Pass fields to update as kwargs JSON string (e.g., {"subject": "New", "status": 2})."""
+    """Updates a user story. Pass fields to update as kwargs dict (e.g., {"subject": "New", "status": 2})."""
     actual_session_id = _get_session_id(session_id)
-    parsed_kwargs = _validate_kwargs("user_story", _parse_mcp_kwargs({"kwargs": kwargs}))
+    parsed_kwargs = _validate_kwargs("user_story", kwargs or {})
     logger.info(
         f"Executing update_user_story ID {user_story_id} for session {actual_session_id[:8]} with data: {parsed_kwargs}"
     )
@@ -901,7 +901,7 @@ def assign_user_story_to_user(
         f"Executing assign_user_story_to_user: US {user_story_id} -> User {user_id}, session {actual_session_id[:8]}..."
     )
     # Delegate to update_user_story with assigned_to
-    return update_user_story(user_story_id, json.dumps({"assigned_to": user_id}), actual_session_id)
+    return update_user_story(user_story_id, {"assigned_to": user_id}, actual_session_id)
 
 
 @mcp.tool(
@@ -917,7 +917,7 @@ def unassign_user_story_from_user(
         f"Executing unassign_user_story_from_user: US {user_story_id}, session {actual_session_id[:8]}..."
     )
     # Delegate to update_user_story with assigned_to=None
-    return update_user_story(user_story_id, json.dumps({"assigned_to": None}), actual_session_id)
+    return update_user_story(user_story_id, {"assigned_to": None}, actual_session_id)
 
 
 @mcp.tool(
@@ -952,13 +952,13 @@ def get_user_story_statuses(
 )
 def list_tasks(
     project_id: int,
-    filters: str = "{}",
+    filters: Optional[Dict[str, Any]] = None,
     session_id: Optional[str] = None,
     verbosity: str = "standard",
 ) -> List[Dict[str, Any]]:
     """Lists tasks for a project. Optional filters like 'milestone', 'status', 'user_story', 'assigned_to' can be passed as JSON string."""
     actual_session_id = _get_session_id(session_id)
-    parsed_filters = _parse_mcp_kwargs({"filters": filters})
+    parsed_filters = filters or {}
     logger.info(
         f"Executing list_tasks for project {project_id}, session {actual_session_id[:8]}, filters: {parsed_filters}"
     )
@@ -983,13 +983,13 @@ def list_tasks(
 def create_task(
     project_id: int,
     subject: str,
-    kwargs: str = "{}",
+    kwargs: Optional[Dict[str, Any]] = None,
     session_id: Optional[str] = None,
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
-    """Creates a task. Requires project_id and subject. Optional fields (description, milestone_id, status_id, user_story_id, assigned_to_id, etc.) via kwargs JSON string."""
+    """Creates a task. Requires project_id and subject. Optional fields (description, milestone_id, status_id, user_story_id, assigned_to_id, etc.) via kwargs dict."""
     actual_session_id = _get_session_id(session_id)
-    parsed_kwargs = _validate_kwargs("task", _parse_mcp_kwargs({"kwargs": kwargs}))
+    parsed_kwargs = _validate_kwargs("task", kwargs or {})
     logger.info(
         f"Executing create_task '{subject}' in project {project_id}, session {actual_session_id[:8]}..."
     )
@@ -1030,11 +1030,14 @@ def get_task(
     description="Updates details of an existing task. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
 )
 def update_task(
-    task_id: int, kwargs: str = "{}", session_id: Optional[str] = None, verbosity: str = "standard"
+    task_id: int,
+    kwargs: Optional[Dict[str, Any]] = None,
+    session_id: Optional[str] = None,
+    verbosity: str = "standard",
 ) -> Dict[str, Any]:
-    """Updates a task. Pass fields to update as kwargs JSON string (e.g., {"subject": "New", "status": 2})."""
+    """Updates a task. Pass fields to update as kwargs dict (e.g., {"subject": "New", "status": 2})."""
     actual_session_id = _get_session_id(session_id)
-    parsed_kwargs = _validate_kwargs("task", _parse_mcp_kwargs({"kwargs": kwargs}))
+    parsed_kwargs = _validate_kwargs("task", kwargs or {})
     logger.info(
         f"Executing update_task ID {task_id} for session {actual_session_id[:8]} with data: {parsed_kwargs}"
     )
@@ -1096,7 +1099,7 @@ def assign_task_to_user(
         f"Executing assign_task_to_user: Task {task_id} -> User {user_id}, session {actual_session_id[:8]}..."
     )
     # Delegate to update_task with assigned_to
-    return update_task(task_id, json.dumps({"assigned_to": user_id}), actual_session_id)
+    return update_task(task_id, {"assigned_to": user_id}, actual_session_id)
 
 
 @mcp.tool(
@@ -1110,7 +1113,27 @@ def unassign_task_from_user(task_id: int, session_id: Optional[str] = None) -> D
         f"Executing unassign_task_from_user: Task {task_id}, session {actual_session_id[:8]}..."
     )
     # Delegate to update_task with assigned_to=None
-    return update_task(task_id, json.dumps({"assigned_to": None}), actual_session_id)
+    return update_task(task_id, {"assigned_to": None}, actual_session_id)
+
+
+@mcp.tool(
+    "get_task_statuses",
+    description="Lists the available statuses for tasks within a specific project. Uses default session if session_id not provided.",
+)
+def get_task_statuses(project_id: int, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Retrieves the list of task statuses for a project."""
+    actual_session_id = _get_session_id(session_id)
+    logger.info(
+        f"Executing get_task_statuses for project {project_id}, session {actual_session_id[:8]}..."
+    )
+    taiga_client_wrapper = _get_authenticated_client(actual_session_id)
+
+    # Note: pytaigaclient lacks task_statuses resource, use raw API call
+    return _execute_taiga_operation(
+        "get_task_statuses",
+        lambda: taiga_client_wrapper.api.get("/task-statuses", params={"project": project_id}),
+        f"project {project_id}",
+    )
 
 
 # --- Issue Tools ---
@@ -1122,13 +1145,13 @@ def unassign_task_from_user(task_id: int, session_id: Optional[str] = None) -> D
 )
 def list_issues(
     project_id: int,
-    filters: str = "{}",
+    filters: Optional[Dict[str, Any]] = None,
     session_id: Optional[str] = None,
     verbosity: str = "standard",
 ) -> List[Dict[str, Any]]:
     """Lists issues for a project. Optional filters like 'milestone', 'status', 'priority', 'severity', 'type', 'assigned_to' can be passed as JSON string."""
     actual_session_id = _get_session_id(session_id)
-    parsed_filters = _parse_mcp_kwargs({"filters": filters})
+    parsed_filters = filters or {}
     logger.info(
         f"Executing list_issues for project {project_id}, session {actual_session_id[:8]}, filters: {parsed_filters}"
     )
@@ -1155,13 +1178,13 @@ def create_issue(
     status_id: int,
     severity_id: int,
     type_id: int,
-    kwargs: str = "{}",
+    kwargs: Optional[Dict[str, Any]] = None,
     session_id: Optional[str] = None,
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
-    """Creates an issue. Requires project_id, subject, priority_id, status_id, severity_id, type_id. Optional fields (description, assigned_to_id, etc.) via kwargs JSON string."""
+    """Creates an issue. Requires project_id, subject, priority_id, status_id, severity_id, type_id. Optional fields (description, assigned_to_id, etc.) via kwargs dict."""
     actual_session_id = _get_session_id(session_id)
-    parsed_kwargs = _validate_kwargs("issue", _parse_mcp_kwargs({"kwargs": kwargs}))
+    parsed_kwargs = _validate_kwargs("issue", kwargs or {})
     logger.info(
         f"Executing create_issue '{subject}' in project {project_id}, session {actual_session_id[:8]}..."
     )
@@ -1210,11 +1233,14 @@ def get_issue(
     description="Updates details of an existing issue. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
 )
 def update_issue(
-    issue_id: int, kwargs: str = "{}", session_id: Optional[str] = None, verbosity: str = "standard"
+    issue_id: int,
+    kwargs: Optional[Dict[str, Any]] = None,
+    session_id: Optional[str] = None,
+    verbosity: str = "standard",
 ) -> Dict[str, Any]:
-    """Updates an issue. Pass fields to update as kwargs JSON string (e.g., {"subject": "New", "status": 2})."""
+    """Updates an issue. Pass fields to update as kwargs dict (e.g., {"subject": "New", "status": 2})."""
     actual_session_id = _get_session_id(session_id)
-    parsed_kwargs = _validate_kwargs("issue", _parse_mcp_kwargs({"kwargs": kwargs}))
+    parsed_kwargs = _validate_kwargs("issue", kwargs or {})
     logger.info(
         f"Executing update_issue ID {issue_id} for session {actual_session_id[:8]} with data: {parsed_kwargs}"
     )
@@ -1276,7 +1302,7 @@ def assign_issue_to_user(
         f"Executing assign_issue_to_user: Issue {issue_id} -> User {user_id}, session {actual_session_id[:8]}..."
     )
     # Delegate to update_issue with assigned_to
-    return update_issue(issue_id, json.dumps({"assigned_to": user_id}), actual_session_id)
+    return update_issue(issue_id, {"assigned_to": user_id}, actual_session_id)
 
 
 @mcp.tool(
@@ -1290,7 +1316,7 @@ def unassign_issue_from_user(issue_id: int, session_id: Optional[str] = None) ->
         f"Executing unassign_issue_from_user: Issue {issue_id}, session {actual_session_id[:8]}..."
     )
     # Delegate to update_issue with assigned_to=None
-    return update_issue(issue_id, json.dumps({"assigned_to": None}), actual_session_id)
+    return update_issue(issue_id, {"assigned_to": None}, actual_session_id)
 
 
 @mcp.tool(
@@ -1382,13 +1408,13 @@ def get_issue_types(project_id: int, session_id: Optional[str] = None) -> List[D
 )
 def list_epics(
     project_id: int,
-    filters: str = "{}",
+    filters: Optional[Dict[str, Any]] = None,
     session_id: Optional[str] = None,
     verbosity: str = "standard",
 ) -> List[Dict[str, Any]]:
     """Lists epics for a project. Optional filters like 'status', 'assigned_to' can be passed as JSON string."""
     actual_session_id = _get_session_id(session_id)
-    parsed_filters = _parse_mcp_kwargs({"filters": filters})
+    parsed_filters = filters or {}
     logger.info(
         f"Executing list_epics for project {project_id}, session {actual_session_id[:8]}, filters: {parsed_filters}"
     )
@@ -1411,13 +1437,13 @@ def list_epics(
 def create_epic(
     project_id: int,
     subject: str,
-    kwargs: str = "{}",
+    kwargs: Optional[Dict[str, Any]] = None,
     session_id: Optional[str] = None,
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
-    """Creates an epic. Requires project_id and subject. Optional fields (description, status_id, assigned_to_id, color, etc.) via kwargs JSON string."""
+    """Creates an epic. Requires project_id and subject. Optional fields (description, status_id, assigned_to_id, color, etc.) via kwargs dict."""
     actual_session_id = _get_session_id(session_id)
-    parsed_kwargs = _validate_kwargs("epic", _parse_mcp_kwargs({"kwargs": kwargs}))
+    parsed_kwargs = _validate_kwargs("epic", kwargs or {})
     logger.info(
         f"Executing create_epic '{subject}' in project {project_id}, session {actual_session_id[:8]}..."
     )
@@ -1458,11 +1484,14 @@ def get_epic(
     description="Updates details of an existing epic. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
 )
 def update_epic(
-    epic_id: int, kwargs: str = "{}", session_id: Optional[str] = None, verbosity: str = "standard"
+    epic_id: int,
+    kwargs: Optional[Dict[str, Any]] = None,
+    session_id: Optional[str] = None,
+    verbosity: str = "standard",
 ) -> Dict[str, Any]:
-    """Updates an epic. Pass fields to update as kwargs JSON string (e.g., {"subject": "New", "color": "#FF0000"})."""
+    """Updates an epic. Pass fields to update as kwargs dict (e.g., {"subject": "New", "color": "#FF0000"})."""
     actual_session_id = _get_session_id(session_id)
-    parsed_kwargs = _validate_kwargs("epic", _parse_mcp_kwargs({"kwargs": kwargs}))
+    parsed_kwargs = _validate_kwargs("epic", kwargs or {})
     logger.info(
         f"Executing update_epic ID {epic_id} for session {actual_session_id[:8]} with data: {parsed_kwargs}"
     )
@@ -1523,7 +1552,7 @@ def assign_epic_to_user(
         f"Executing assign_epic_to_user: Epic {epic_id} -> User {user_id}, session {actual_session_id[:8]}..."
     )
     # Delegate to update_epic with assigned_to
-    return update_epic(epic_id, json.dumps({"assigned_to": user_id}), actual_session_id)
+    return update_epic(epic_id, {"assigned_to": user_id}, actual_session_id)
 
 
 @mcp.tool(
@@ -1537,7 +1566,82 @@ def unassign_epic_from_user(epic_id: int, session_id: Optional[str] = None) -> D
         f"Executing unassign_epic_from_user: Epic {epic_id}, session {actual_session_id[:8]}..."
     )
     # Delegate to update_epic with assigned_to=None
-    return update_epic(epic_id, json.dumps({"assigned_to": None}), actual_session_id)
+    return update_epic(epic_id, {"assigned_to": None}, actual_session_id)
+
+
+@mcp.tool(
+    "list_epic_user_stories",
+    description="Lists user stories related to a specific epic. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
+)
+def list_epic_user_stories(
+    epic_id: int, session_id: Optional[str] = None, verbosity: str = "standard"
+) -> List[Dict[str, Any]]:
+    """Lists user stories linked to an epic."""
+    actual_session_id = _get_session_id(session_id)
+    logger.info(
+        f"Executing list_epic_user_stories for epic {epic_id}, session {actual_session_id[:8]}..."
+    )
+    taiga_client_wrapper = _get_authenticated_client(actual_session_id)
+
+    result = _execute_taiga_operation(
+        "list_epic_user_stories",
+        lambda: taiga_client_wrapper.api.epics.list_related_user_stories(epic_id),
+        f"epic {epic_id}",
+    )
+    return _filter_response(result, "epic_related_user_story", verbosity)
+
+
+@mcp.tool(
+    "link_story_to_epic",
+    description="Links a user story to an epic. Uses default session if session_id not provided.",
+)
+def link_story_to_epic(
+    epic_id: int, user_story_id: int, session_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Links a user story to an epic."""
+    actual_session_id = _get_session_id(session_id)
+    logger.info(
+        f"Executing link_story_to_epic: Epic {epic_id} <- Story {user_story_id}, session {actual_session_id[:8]}..."
+    )
+    taiga_client_wrapper = _get_authenticated_client(actual_session_id)
+
+    # NOTE: pytaigaclient bug - add_related_user_story doesn't include 'epic' in payload
+    # but Taiga API requires it. Pass epic=epic_id as workaround.
+    result = _execute_taiga_operation(
+        "link_story_to_epic",
+        lambda: taiga_client_wrapper.api.epics.add_related_user_story(
+            epic_id, user_story_id, epic=epic_id
+        ),
+        f"epic {epic_id} <- story {user_story_id}",
+    )
+    return (
+        result
+        if isinstance(result, dict)
+        else {"status": "linked", "epic_id": epic_id, "user_story_id": user_story_id}
+    )
+
+
+@mcp.tool(
+    "unlink_story_from_epic",
+    description="Unlinks a user story from an epic. Uses default session if session_id not provided.",
+)
+def unlink_story_from_epic(
+    epic_id: int, user_story_id: int, session_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Unlinks a user story from an epic."""
+    actual_session_id = _get_session_id(session_id)
+    logger.info(
+        f"Executing unlink_story_from_epic: Epic {epic_id} -/- Story {user_story_id}, session {actual_session_id[:8]}..."
+    )
+    taiga_client_wrapper = _get_authenticated_client(actual_session_id)
+
+    def do_unlink():
+        taiga_client_wrapper.api.epics.delete_related_user_story(epic_id, user_story_id)
+        return {"status": "unlinked", "epic_id": epic_id, "user_story_id": user_story_id}
+
+    return _execute_taiga_operation(
+        "unlink_story_from_epic", do_unlink, f"epic {epic_id} -/- story {user_story_id}"
+    )
 
 
 # --- Milestone (Sprint) Tools ---
@@ -1625,13 +1729,13 @@ def get_milestone(
 )
 def update_milestone(
     milestone_id: int,
-    kwargs: str = "{}",
+    kwargs: Optional[Dict[str, Any]] = None,
     session_id: Optional[str] = None,
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
-    """Updates a milestone. Pass fields to update as kwargs JSON string (e.g., {"name": "Sprint 2", "estimated_finish": "2025-02-28"})."""
+    """Updates a milestone. Pass fields to update as kwargs dict (e.g., {"name": "Sprint 2", "estimated_finish": "2025-02-28"})."""
     actual_session_id = _get_session_id(session_id)
-    parsed_kwargs = _validate_kwargs("milestone", _parse_mcp_kwargs({"kwargs": kwargs}))
+    parsed_kwargs = _validate_kwargs("milestone", kwargs or {})
     logger.info(
         f"Executing update_milestone ID {milestone_id} for session {actual_session_id[:8]} with data: {parsed_kwargs}"
     )
@@ -1679,6 +1783,28 @@ def delete_milestone(milestone_id: int, session_id: Optional[str] = None) -> Dic
         return {"status": "deleted", "milestone_id": milestone_id}
 
     return _execute_taiga_operation("delete_milestone", do_delete, f"milestone {milestone_id}")
+
+
+@mcp.tool(
+    "get_milestone_stats",
+    description="Gets statistics for a specific milestone (sprint), including completion percentages and story points. verbosity: 'minimal' (total/completed points), 'standard' (default), 'full'. Uses default session if session_id not provided.",
+)
+def get_milestone_stats(
+    milestone_id: int, session_id: Optional[str] = None, verbosity: str = "standard"
+) -> Dict[str, Any]:
+    """Retrieves statistics for a milestone including completion percentages and burndown data."""
+    actual_session_id = _get_session_id(session_id)
+    logger.info(
+        f"Executing get_milestone_stats for milestone {milestone_id}, session {actual_session_id[:8]}..."
+    )
+    taiga_client_wrapper = _get_authenticated_client(actual_session_id)
+
+    result = _execute_taiga_operation(
+        "get_milestone_stats",
+        lambda: taiga_client_wrapper.api.milestones.stats(milestone_id),
+        f"milestone {milestone_id}",
+    )
+    return _filter_response(result, "milestone_stats", verbosity)
 
 
 # --- User Management Tools ---
@@ -1780,6 +1906,100 @@ def get_wiki_page(
         f"wiki page {wiki_page_id}",
     )
     return _filter_response(result, "wiki_page", verbosity)
+
+
+@mcp.tool(
+    "create_wiki_page",
+    description="Creates a new wiki page within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
+)
+def create_wiki_page(
+    project_id: int,
+    slug: str,
+    content: str,
+    kwargs: Optional[Dict[str, Any]] = None,
+    session_id: Optional[str] = None,
+    verbosity: str = "standard",
+) -> Dict[str, Any]:
+    """Creates a wiki page. Requires project_id, slug, and content. Optional fields via kwargs dict."""
+    actual_session_id = _get_session_id(session_id)
+    parsed_kwargs = _validate_kwargs("wiki_page", kwargs or {})
+    logger.info(
+        f"Executing create_wiki_page '{slug}' in project {project_id}, session {actual_session_id[:8]}..."
+    )
+    taiga_client_wrapper = _get_authenticated_client(actual_session_id)
+    if not slug or not content:
+        raise ValueError("Wiki page slug and content are required.")
+
+    result = _execute_taiga_operation(
+        "create_wiki_page",
+        lambda: taiga_client_wrapper.api.wiki.create(
+            project=project_id, slug=slug, content=content, **parsed_kwargs
+        ),
+        f"wiki page '{slug}'",
+    )
+    return _filter_response(result, "wiki_page", verbosity)
+
+
+@mcp.tool(
+    "update_wiki_page",
+    description="Updates an existing wiki page. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
+)
+def update_wiki_page(
+    wiki_page_id: int,
+    kwargs: Optional[Dict[str, Any]] = None,
+    session_id: Optional[str] = None,
+    verbosity: str = "standard",
+) -> Dict[str, Any]:
+    """Updates a wiki page. Pass fields to update as kwargs dict (e.g., {"content": "New content"})."""
+    actual_session_id = _get_session_id(session_id)
+    parsed_kwargs = _validate_kwargs("wiki_page", kwargs or {})
+    logger.info(
+        f"Executing update_wiki_page ID {wiki_page_id} for session {actual_session_id[:8]} with data: {parsed_kwargs}"
+    )
+    taiga_client_wrapper = _get_authenticated_client(actual_session_id)
+    try:
+        if not parsed_kwargs:
+            logger.info(f"No fields provided for update on wiki page {wiki_page_id}")
+            result = taiga_client_wrapper.api.wiki.get(wiki_page_id)
+            return _filter_response(result, "wiki_page", verbosity)
+
+        # Get current wiki page data to retrieve version
+        current_page = taiga_client_wrapper.api.wiki.get(wiki_page_id)
+        version = current_page.get("version")
+        if not version:
+            raise ValueError(f"Could not determine version for wiki page {wiki_page_id}")
+
+        # wiki.edit() uses data dict, not **kwargs
+        updated_page = taiga_client_wrapper.api.wiki.edit(
+            wiki_page_id=wiki_page_id, version=version, data=parsed_kwargs
+        )
+        logger.info(f"Wiki page {wiki_page_id} update request sent.")
+        return _filter_response(updated_page, "wiki_page", verbosity)
+    except TaigaException as e:
+        logger.error(f"Taiga API error updating wiki page {wiki_page_id}: {e}", exc_info=False)
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error updating wiki page {wiki_page_id}: {e}", exc_info=True)
+        raise RuntimeError(f"Server error updating wiki page: {e}")
+
+
+@mcp.tool(
+    "delete_wiki_page",
+    description="Deletes a wiki page by its ID. Uses default session if session_id not provided.",
+)
+def delete_wiki_page(wiki_page_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
+    """Deletes a wiki page by ID."""
+    actual_session_id = _get_session_id(session_id)
+    logger.warning(
+        f"Executing delete_wiki_page ID {wiki_page_id} for session {actual_session_id[:8]}..."
+    )
+    taiga_client_wrapper = _get_authenticated_client(actual_session_id)
+
+    def do_delete():
+        taiga_client_wrapper.api.wiki.delete(wiki_page_id=wiki_page_id)
+        return {"status": "deleted", "wiki_page_id": wiki_page_id}
+
+    return _execute_taiga_operation("delete_wiki_page", do_delete, f"wiki page {wiki_page_id}")
 
 
 # --- Session Management Tools ---
