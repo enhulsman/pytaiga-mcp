@@ -283,9 +283,37 @@ RESPONSE_FIELDS: Dict[str, Dict[str, Optional[List[str]]]] = {
         "standard": ["epic", "user_story", "order"],
         "full": None,
     },
+    "history_entry": {
+        "minimal": ["id", "type", "key", "comment", "user", "created_at"],
+        "standard": [
+            "id",
+            "type",
+            "key",
+            "comment",
+            "comment_html",
+            "user",
+            "created_at",
+            "diff",
+            "values_diff",
+            "is_hidden",
+        ],
+        "full": None,
+    },
 }
 
 VALID_VERBOSITY_LEVELS = {"minimal", "standard", "full"}
+
+# Valid object types for history API
+VALID_HISTORY_TYPES = {"userstory", "task", "issue", "epic", "wiki"}
+
+# Mapping from history type to API resource endpoint
+HISTORY_TYPE_TO_RESOURCE = {
+    "userstory": "userstories",
+    "task": "tasks",
+    "issue": "issues",
+    "epic": "epics",
+    "wiki": "wiki",
+}
 
 
 def _validate_kwargs(resource_type: str, kwargs: dict, strict: bool = False) -> dict:
@@ -2000,6 +2028,113 @@ def delete_wiki_page(wiki_page_id: int, session_id: Optional[str] = None) -> Dic
         return {"status": "deleted", "wiki_page_id": wiki_page_id}
 
     return _execute_taiga_operation("delete_wiki_page", do_delete, f"wiki page {wiki_page_id}")
+
+
+# --- History/Comments Tools ---
+
+
+def _simplify_history_user(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Simplify nested user objects in history entries.
+
+    The Taiga API returns full user objects with photo URLs, gravatar hashes, etc.
+    For minimal/standard verbosity, we only need id and name.
+    """
+    for entry in entries:
+        if "user" in entry and isinstance(entry["user"], dict):
+            entry["user"] = {
+                "id": entry["user"].get("pk"),
+                "name": entry["user"].get("name"),
+            }
+    return entries
+
+
+@mcp.tool(
+    "list_history",
+    description="Lists history entries (including comments) for an object. object_type must be one of: userstory, task, issue, epic, wiki. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
+)
+def list_history(
+    object_type: str,
+    object_id: int,
+    session_id: Optional[str] = None,
+    verbosity: str = "standard",
+) -> List[Dict[str, Any]]:
+    """Lists history entries for an object, including comments and changes."""
+    if object_type not in VALID_HISTORY_TYPES:
+        raise ValueError(
+            f"Invalid object_type '{object_type}'. Must be one of: {', '.join(sorted(VALID_HISTORY_TYPES))}"
+        )
+
+    actual_session_id = _get_session_id(session_id)
+    logger.info(
+        f"Executing list_history for {object_type}/{object_id}, session {actual_session_id[:8]}..."
+    )
+    taiga_client_wrapper = _get_authenticated_client(actual_session_id)
+
+    result = _execute_taiga_operation(
+        "list_history",
+        lambda: taiga_client_wrapper.api.get(f"/history/{object_type}/{object_id}"),
+        f"{object_type}/{object_id}",
+    )
+    filtered = _filter_response(result, "history_entry", verbosity)
+
+    # Simplify user objects for minimal/standard (full returns everything)
+    if verbosity != "full" and isinstance(filtered, list):
+        filtered = _simplify_history_user(filtered)
+
+    return filtered
+
+
+@mcp.tool(
+    "add_comment",
+    description="Adds a comment to an object. object_type must be one of: userstory, task, issue, epic, wiki. Uses default session if session_id not provided.",
+)
+def add_comment(
+    object_type: str,
+    object_id: int,
+    comment: str,
+    session_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Adds a comment to an object via PATCH with comment field."""
+    if object_type not in VALID_HISTORY_TYPES:
+        raise ValueError(
+            f"Invalid object_type '{object_type}'. Must be one of: {', '.join(sorted(VALID_HISTORY_TYPES))}"
+        )
+
+    if not comment or not comment.strip():
+        raise ValueError("Comment cannot be empty")
+
+    actual_session_id = _get_session_id(session_id)
+    logger.info(
+        f"Executing add_comment to {object_type}/{object_id}, session {actual_session_id[:8]}..."
+    )
+    taiga_client_wrapper = _get_authenticated_client(actual_session_id)
+
+    # Get the resource endpoint name
+    resource_endpoint = HISTORY_TYPE_TO_RESOURCE[object_type]
+
+    def do_add_comment():
+        # First get current version
+        obj = taiga_client_wrapper.api.get(f"/{resource_endpoint}/{object_id}")
+        version = obj.get("version")
+        if version is None:
+            raise ValueError(f"Could not get version for {object_type}/{object_id}")
+
+        # PATCH with comment and version
+        result = taiga_client_wrapper.api.patch(
+            f"/{resource_endpoint}/{object_id}",
+            json={"comment": comment.strip(), "version": version},
+        )
+        return {
+            "status": "comment_added",
+            "object_type": object_type,
+            "object_id": object_id,
+            "comment": comment.strip(),
+            "new_version": result.get("version"),
+        }
+
+    return _execute_taiga_operation(
+        "add_comment", do_add_comment, f"{object_type}/{object_id}"
+    )
 
 
 # --- Session Management Tools ---

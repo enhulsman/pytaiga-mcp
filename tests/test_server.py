@@ -135,8 +135,8 @@ class TestResponseFiltering:
 
     def test_filter_standard_always_includes_version(self):
         """version is required for updates in standard level."""
-        # These resource types don't have version (not updateable or special stats)
-        no_version_resources = {"member", "milestone_stats", "epic_related_user_story"}
+        # These resource types don't have version (not updateable or special stats/read-only)
+        no_version_resources = {"member", "milestone_stats", "epic_related_user_story", "history_entry"}
         for resource_type, levels in src.server.RESPONSE_FIELDS.items():
             if resource_type not in no_version_resources:
                 assert "version" in levels["standard"], (
@@ -451,3 +451,80 @@ class TestExtendedTools:
         mock_client.api.user_stories.edit.assert_called_once_with(
             user_story_id=1, version=1, assigned_to=None
         )
+
+    def test_list_history(self, session_setup):
+        """Test list_history functionality."""
+        session_id, mock_client = session_setup
+
+        # Setup mock return with full user object (as returned by Taiga API)
+        mock_client.api.get.return_value = [
+            {
+                "id": "abc-123",
+                "type": 1,
+                "key": "userstories.userstory:32",
+                "comment": "Test comment",
+                "user": {
+                    "pk": 5,
+                    "username": "testuser",
+                    "name": "Test User",
+                    "photo": "https://example.com/photo.jpg",
+                    "gravatar_id": "abc123",
+                },
+                "created_at": "2026-01-12T10:00:00Z",
+                "diff": {"status": [1, 2]},
+                "values_diff": {"status": ["New", "Done"]},
+            }
+        ]
+
+        # Call the function (default standard verbosity)
+        result = src.server.list_history("userstory", 32, session_id)
+        assert len(result) == 1
+        assert result[0]["comment"] == "Test comment"
+        assert result[0]["key"] == "userstories.userstory:32"
+
+        # Verify user object is simplified (no photo/gravatar)
+        assert result[0]["user"] == {"id": 5, "name": "Test User"}
+        assert "photo" not in result[0]["user"]
+        assert "gravatar_id" not in result[0]["user"]
+
+        # Verify correct API call
+        mock_client.api.get.assert_called_once_with("/history/userstory/32")
+
+    def test_list_history_invalid_type(self, session_setup):
+        """Test list_history rejects invalid object types."""
+        session_id, _ = session_setup
+
+        with pytest.raises(ValueError) as exc_info:
+            src.server.list_history("invalid_type", 32, session_id)
+
+        assert "Invalid object_type" in str(exc_info.value)
+        assert "userstory" in str(exc_info.value)
+
+    def test_add_comment(self, session_setup):
+        """Test add_comment functionality."""
+        session_id, mock_client = session_setup
+
+        # Setup mock returns
+        mock_client.api.get.return_value = {"id": 32, "version": 5}
+        mock_client.api.patch.return_value = {"id": 32, "version": 6}
+
+        # Call the function
+        result = src.server.add_comment("userstory", 32, "New comment", session_id)
+        assert result["status"] == "comment_added"
+        assert result["comment"] == "New comment"
+        assert result["new_version"] == 6
+
+        # Verify correct API calls
+        mock_client.api.get.assert_called_once_with("/userstories/32")
+        mock_client.api.patch.assert_called_once_with(
+            "/userstories/32", json={"comment": "New comment", "version": 5}
+        )
+
+    def test_add_comment_empty_rejected(self, session_setup):
+        """Test add_comment rejects empty comments."""
+        session_id, _ = session_setup
+
+        with pytest.raises(ValueError) as exc_info:
+            src.server.add_comment("userstory", 32, "   ", session_id)
+
+        assert "empty" in str(exc_info.value).lower()
