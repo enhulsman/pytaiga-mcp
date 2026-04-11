@@ -11,11 +11,11 @@ from src.session import execute_taiga_operation, get_authenticated_client, get_s
 logger = logging.getLogger(__name__)
 
 
-def list_milestones(project_id: int, session_id: Optional[str] = None, verbosity: str = "standard") -> List[Dict[str, Any]]:
+def list_milestones(project_id: int, closed: Optional[bool] = None, session_id: Optional[str] = None, verbosity: str = "standard") -> List[Dict[str, Any]]:
     actual_session_id = get_session_id(session_id)
     logger.info(f"Executing list_milestones for project {project_id}, session {actual_session_id[:8]}...")
     taiga_client_wrapper = get_authenticated_client(actual_session_id)
-    result = execute_taiga_operation("list_milestones", lambda: taiga_client_wrapper.api.milestones.list(project=project_id), f"project {project_id}")
+    result = execute_taiga_operation("list_milestones", lambda: taiga_client_wrapper.api.milestones.list(project=project_id, closed=closed), f"project {project_id}")
     return filter_response(result, "milestone", verbosity)
 
 
@@ -82,7 +82,7 @@ def get_milestone_stats(milestone_id: int, session_id: Optional[str] = None, ver
 
 
 def register(mcp):
-    mcp.tool("list_milestones", description="Lists milestones (sprints) within a specific project. verbosity: 'minimal' (id/name/slug/project), 'standard' (default), 'full'. Uses default session if session_id not provided.")(list_milestones)
+    mcp.tool("list_milestones", description="Lists milestones (sprints) for a project. Set closed=false for open sprints only, closed=true for closed only. Returns all by default. verbosity: 'minimal', 'standard' (default), 'full'.")(list_milestones)
     mcp.tool("create_milestone", description="Creates a new milestone (sprint) within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_milestone)
     mcp.tool("get_milestone", description="Gets detailed information about a specific milestone by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_milestone)
     mcp.tool("update_milestone", description="Updates details of an existing milestone. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_milestone)

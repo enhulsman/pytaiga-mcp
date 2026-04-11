@@ -154,11 +154,11 @@ def get_task_statuses(project_id: int, session_id: Optional[str] = None) -> List
 
 
 def register(mcp):
-    mcp.tool("list_tasks", description="Lists tasks within a specific project, optionally filtered. verbosity: 'minimal' (id/ref/subject/status/project), 'standard' (default), 'full'. Uses default session if session_id not provided.")(list_tasks)
+    mcp.tool("list_tasks", description="Lists tasks for a project. Filters: status (ID), user_story (ID), milestone (ID), assigned_to (user ID), tags (comma-separated), status__is_closed (bool). Use get_task_statuses for valid status IDs. verbosity: 'minimal', 'standard' (default), 'full'.")(list_tasks)
     mcp.tool("create_task", description="Creates a new task within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_task)
     mcp.tool("get_task", description="Gets detailed information about a specific task by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_task)
     mcp.tool("update_task", description="Updates details of an existing task. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_task)
     mcp.tool("delete_task", description="Deletes a task by its ID. Uses default session if session_id not provided.")(delete_task)
     mcp.tool("assign_task_to_user", description="Assigns a specific task to a specific user. Uses default session if session_id not provided.")(assign_task_to_user)
     mcp.tool("unassign_task_from_user", description="Unassigns a specific task (sets assigned user to null). Uses default session if session_id not provided.")(unassign_task_from_user)
-    mcp.tool("get_task_statuses", description="Lists the available statuses for tasks within a specific project. Uses default session if session_id not provided.")(get_task_statuses)
+    mcp.tool("get_task_statuses", description="Lists available task statuses for a project. Use returned IDs with list_tasks filters: {\"status\": <id>}.")(get_task_statuses)

@@ -118,14 +118,14 @@ def get_issue_types(project_id: int, session_id: Optional[str] = None) -> List[D
 
 
 def register(mcp):
-    mcp.tool("list_issues", description="Lists issues within a specific project, optionally filtered. verbosity: 'minimal' (id/ref/subject/status/priority/severity/project), 'standard' (default), 'full'. Uses default session if session_id not provided.")(list_issues)
+    mcp.tool("list_issues", description="Lists issues for a project. Filters: status (ID), severity (ID), priority (ID), type (ID), assigned_to (user ID), tags (comma-separated), status__is_closed (bool). Use get_issue_statuses/priorities/severities/types for valid IDs. verbosity: 'minimal', 'standard' (default), 'full'.")(list_issues)
     mcp.tool("create_issue", description="Creates a new issue within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_issue)
     mcp.tool("get_issue", description="Gets detailed information about a specific issue by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_issue)
     mcp.tool("update_issue", description="Updates details of an existing issue. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_issue)
     mcp.tool("delete_issue", description="Deletes an issue by its ID. Uses default session if session_id not provided.")(delete_issue)
     mcp.tool("assign_issue_to_user", description="Assigns a specific issue to a specific user. Uses default session if session_id not provided.")(assign_issue_to_user)
     mcp.tool("unassign_issue_from_user", description="Unassigns a specific issue (sets assigned user to null). Uses default session if session_id not provided.")(unassign_issue_from_user)
-    mcp.tool("get_issue_statuses", description="Lists the available statuses for issues within a specific project. Uses default session if session_id not provided.")(get_issue_statuses)
-    mcp.tool("get_issue_priorities", description="Lists the available priorities for issues within a specific project. Uses default session if session_id not provided.")(get_issue_priorities)
-    mcp.tool("get_issue_severities", description="Lists the available severities for issues within a specific project. Uses default session if session_id not provided.")(get_issue_severities)
-    mcp.tool("get_issue_types", description="Lists the available types for issues within a specific project. Uses default session if session_id not provided.")(get_issue_types)
+    mcp.tool("get_issue_statuses", description="Lists available issue statuses for a project. Use returned IDs with list_issues filters: {\"status\": <id>}.")(get_issue_statuses)
+    mcp.tool("get_issue_priorities", description="Lists available issue priorities for a project. Use returned IDs with list_issues filters: {\"priority\": <id>}.")(get_issue_priorities)
+    mcp.tool("get_issue_severities", description="Lists available issue severities for a project. Use returned IDs with list_issues filters: {\"severity\": <id>}.")(get_issue_severities)
+    mcp.tool("get_issue_types", description="Lists available issue types for a project. Use returned IDs with list_issues filters: {\"type\": <id>}.")(get_issue_types)

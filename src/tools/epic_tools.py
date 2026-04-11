@@ -117,7 +117,7 @@ def unlink_story_from_epic(epic_id: int, user_story_id: int, session_id: Optiona
 
 
 def register(mcp):
-    mcp.tool("list_epics", description="Lists epics within a specific project, optionally filtered. verbosity: 'minimal' (id/ref/subject/status/project), 'standard' (default), 'full'. Uses default session if session_id not provided.")(list_epics)
+    mcp.tool("list_epics", description="Lists epics for a project. Filters: status (ID), assigned_to (user ID), tags (comma-separated). Note: no get_epic_statuses tool exists yet; status IDs can be found in the project detail. verbosity: 'minimal', 'standard' (default), 'full'.")(list_epics)
     mcp.tool("create_epic", description="Creates a new epic within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_epic)
     mcp.tool("get_epic", description="Gets detailed information about a specific epic by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_epic)
     mcp.tool("update_epic", description="Updates details of an existing epic. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_epic)
