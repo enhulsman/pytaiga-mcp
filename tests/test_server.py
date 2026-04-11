@@ -7,6 +7,8 @@ import pytest
 import src.server
 from src.taiga_client import TaigaClientWrapper
 
+from pytaigaclient import TaigaClient
+
 # Test constants
 TEST_HOST = "https://your-test-taiga-instance.com"
 TEST_USERNAME = "test_user"
@@ -44,6 +46,30 @@ class TestTaigaTools:
 
             # Cleanup
             src.server.active_sessions.clear()
+
+    @patch("src.taiga_client.TaigaClient")
+    def test_login_disables_pagination(self, MockTaigaClient):
+        """Verify TaigaClient is created with disable_pagination=True on login."""
+        mock_instance = MockTaigaClient.return_value
+        mock_instance.auth.login.return_value = None
+        mock_instance.auth_token = "fake-token"
+        wrapper = TaigaClientWrapper(host="https://taiga.example.com")
+        wrapper.login("user", "pass")
+        MockTaigaClient.assert_called_with(
+            host="https://taiga.example.com", disable_pagination=True
+        )
+
+    @patch("src.taiga_client.TaigaClient")
+    def test_set_token_disables_pagination(self, MockTaigaClient):
+        """Verify TaigaClient is created with disable_pagination=True on set_token."""
+        wrapper = TaigaClientWrapper(host="https://taiga.example.com")
+        wrapper.set_token("fake-token", "Bearer")
+        MockTaigaClient.assert_called_with(
+            host="https://taiga.example.com",
+            auth_token="fake-token",
+            token_type="Bearer",
+            disable_pagination=True,
+        )
 
     def test_list_projects(self, session_setup):
         """Test list_projects functionality"""
