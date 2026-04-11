@@ -9,11 +9,14 @@ description = "Taiga integration bridge for MCP"
 requires-python = ">=3.10"
 authors = [{ name = "Talha Orak", email = "talhaorak.git@gmail.com" }]
 dependencies = [
-    "mcp[cli]>=0.1.0",
+    "mcp[cli]>=1.26.0,<2.0.0",
     "python-dotenv>=0.15.0",
     "pydantic>=2.4.0",
     "pydantic-settings>=2.0.0",
     "pytaigaclient",
+    "PyJWT[crypto]>=2.8.0",
+    "cryptography>=41.0.0",
+    "cachetools>=5.3.0",
 ]
 
 [project.optional-dependencies]
