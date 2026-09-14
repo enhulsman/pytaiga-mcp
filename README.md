@@ -182,13 +182,13 @@ uv run python src/server.py --sse
 
 The server supports two transport modes:
 
-1. **stdio (Standard Input/Output)** - Default mode for terminal-based clients
-2. **SSE (Server-Sent Events)** - Web-based transport with server push capabilities
+1. **stdio (Standard Input/Output)** - Default mode for terminal-based clients such as Claude Code or Codex running the server as a subprocess
+2. **streamable-http** - Remote HTTP transport for claude.ai connectors and other remote MCP clients, protected by OAuth 2.1 (see below)
 
 You can set the transport mode in several ways:
-- Using the `--sse` flag with run.sh or server.py (default is stdio)
-- Setting the `TAIGA_TRANSPORT` environment variable 
-- Adding `TAIGA_TRANSPORT=sse` to your `.env` file
+- Using the `--streamable-http` flag with server.py (default is stdio)
+- Setting the `TAIGA_TRANSPORT` environment variable
+- Adding `TAIGA_TRANSPORT=streamable-http` to your `.env` file
 
 ### Authentication Flow
 
@@ -205,6 +205,16 @@ new_story = client.call_tool("create_user_story", {
     "subject": "New feature request"
 })
 ```
+
+#### OAuth Mode (streamable-http): Single Service Account
+
+In streamable-http mode with `OAUTH_ISSUER_URL` and `OAUTH_AUDIENCE` set, every MCP request must carry a bearer token issued by the configured OAuth provider (Auth0 in the reference deployment). The server publishes `/.well-known/oauth-protected-resource`, so MCP clients that support OAuth discover the provider on their own.
+
+**Who acts in Taiga.** OAuth only decides *who may call the server*. It does not choose the Taiga account. Every tool call, whichever OAuth identity made it, runs through the default session created at startup from `TAIGA_USERNAME` and `TAIGA_PASSWORD`. Deploy the server with a dedicated Taiga service account in those variables, and all agent activity is attributed to that account in Taiga.
+
+**Per-user linking is present but not wired in.** The codebase contains a browser-based flow (`/link-account`), an encrypted credential store, an `OAuthSessionBridge`, and the `taiga_link_status` / `taiga_unlink_account` tools. They store a Taiga token per OAuth subject, but the core tools never read it: they resolve their client through `get_session_id()` and the default session. Treat the linking flow as inactive until the change below lands.
+
+**Planned:** route tool calls through the session bridge in OAuth mode so each OAuth identity acts as its own Taiga user, or as the service account when unlinked. Until then the deployment is single-tenant: everyone who can obtain a token acts as the service account, so keep the OAuth application restricted to the intended users.
 
 #### Manual Session Management
 
@@ -358,6 +368,7 @@ All API operations return standardized error responses in the following format:
 
 The following features are planned for future releases:
 
+- Per-user Taiga identity in OAuth mode (wire the existing session bridge into the core tools)
 - Session expiration and automatic cleanup
 - Rate limiting for API calls
 - Retry mechanism with exponential backoff

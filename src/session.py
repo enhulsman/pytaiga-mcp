@@ -40,7 +40,10 @@ def is_oauth_mode() -> bool:
 def get_session_id(session_id: Optional[str] = None) -> str:
     """Get session ID, defaulting to 'default' if available.
 
-    In OAuth mode, this is not used -- get_taiga_client_for_oauth() is used instead.
+    Used in both stdio and OAuth mode. In OAuth mode the core tools still
+    resolve the default session (env credentials, i.e. the service account);
+    the OAuthSessionBridge is not consulted by tool calls yet. See README,
+    "OAuth Mode (streamable-http): Single Service Account".
     """
     if session_id:
         return session_id
