@@ -295,6 +295,28 @@ class TestExtendedTools:
         # Verify correct API call
         mock_client.api.get.assert_called_once_with("/task-statuses", params={"project": 123})
 
+    def test_invite_project_user_uses_memberships_create(self, session_setup):
+        """invite_project_user must call memberships.create; the client removed .invite()."""
+        from src.tools.member_tools import invite_project_user
+
+        session_id, mock_client = session_setup
+        # Real client has no .invite attribute; make the mock as strict.
+        del mock_client.api.memberships.invite
+        mock_client.api.memberships.create.return_value = {"id": 42, "email": "new@example.com", "role": 7}
+
+        result = invite_project_user(123, "new@example.com", 7, session_id)
+
+        assert result["id"] == 42
+        mock_client.api.memberships.create.assert_called_once_with(project=123, role=7, username="new@example.com")
+
+    def test_invite_project_user_rejects_empty_email(self, session_setup):
+        from src.tools.member_tools import invite_project_user
+
+        session_id, mock_client = session_setup
+        with pytest.raises(ValueError):
+            invite_project_user(123, "", 7, session_id)
+        mock_client.api.memberships.create.assert_not_called()
+
     def test_get_milestone_stats(self, session_setup):
         """Test get_milestone_stats functionality."""
         session_id, mock_client = session_setup

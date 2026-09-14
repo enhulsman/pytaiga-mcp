@@ -25,7 +25,8 @@ def invite_project_user(project_id: int, email: str, role_id: int, session_id: O
         raise ValueError("Email cannot be empty.")
 
     def do_invite():
-        result = taiga_client_wrapper.api.memberships.invite(project=project_id, email=email, role_id=role_id)
+        # pytaigaclient removed memberships.invite(); create() adds an existing user or sends an invitation.
+        result = taiga_client_wrapper.api.memberships.create(project=project_id, role=role_id, username=email)
         return result if isinstance(result, dict) else {"status": "invited", "email": email, "details": result}
 
     return execute_taiga_operation("invite_project_user", do_invite, f"email '{email}' to project {project_id}")
