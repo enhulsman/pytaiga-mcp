@@ -216,6 +216,19 @@ In streamable-http mode with `OAUTH_ISSUER_URL` and `OAUTH_AUDIENCE` set, every 
 
 **Planned:** route tool calls through the session bridge in OAuth mode so each OAuth identity acts as its own Taiga user, or as the service account when unlinked. Until then the deployment is single-tenant: everyone who can obtain a token acts as the service account, so keep the OAuth application restricted to the intended users.
 
+#### OAuth Provider and claude.ai Connector Setup
+
+The reference deployment uses Auth0 (managed, free tier, no operations burden). Keycloak was considered and rejected as too heavy for a homelab (Java, about 512 MB RAM); the MCP SDK's built-in authorization server was rejected as less battle-tested. Provider-side setup:
+
+1. Create an API (resource server) whose identifier is the server's public URL, with scopes `taiga:read` and `taiga:write`.
+2. Create a Regular Web Application for claude.ai with callback `https://claude.ai/api/mcp/auth_callback`.
+3. Create a second Regular Web Application for the browser linking flow with callback `<public URL>/link-account/callback`; its client id and secret go into `OAUTH_LINK_CLIENT_ID` and `OAUTH_LINK_CLIENT_SECRET`.
+4. Add the users who may use the server; keep sign-ups disabled on the connection.
+
+In claude.ai: Organization Settings, Connectors, Add custom connector. URL `<public URL>/mcp`, and under advanced settings the client id and secret of the claude.ai application. Team members then enable the connector per conversation.
+
+References: [Claude custom connectors](https://support.claude.com/en/articles/11175166), [building custom connectors](https://support.claude.com/en/articles/11503834), [MCP authorization spec](https://modelcontextprotocol.io/specification/draft/basic/authorization), [Auth0 for MCP servers](https://auth0.com/ai/docs/mcp/get-started/authorization-for-your-mcp-server).
+
 #### Manual Session Management
 
 For scenarios requiring multiple sessions or explicit control, use the session-based model:
