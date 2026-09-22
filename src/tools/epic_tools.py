@@ -3,29 +3,25 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from pytaigaclient.exceptions import TaigaException
-
 from src.response_filter import filter_response, validate_kwargs
-from src.session import execute_taiga_operation, get_authenticated_client, get_session_id
+from src.session import execute_taiga_operation, resolve_client
 
 logger = logging.getLogger(__name__)
 
 
 def list_epics(project_id: int, filters: Optional[Dict[str, Any]] = None, session_id: Optional[str] = None, verbosity: str = "standard") -> List[Dict[str, Any]]:
-    actual_session_id = get_session_id(session_id)
     parsed_filters = filters or {}
-    logger.info(f"Executing list_epics for project {project_id}, session {actual_session_id[:8]}, filters: {parsed_filters}")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing list_epics for project {project_id}, filters: {parsed_filters}")
+    taiga_client_wrapper = resolve_client(session_id)
     query = {"project": project_id, **parsed_filters}
     result = execute_taiga_operation("list_epics", lambda: taiga_client_wrapper.api.epics.list(query_params=query), f"project {project_id}")
     return filter_response(result, "epic", verbosity)
 
 
 def create_epic(project_id: int, subject: str, kwargs: Optional[Dict[str, Any]] = None, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
     parsed_kwargs = validate_kwargs("epic", kwargs or {})
-    logger.info(f"Executing create_epic '{subject}' in project {project_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing create_epic '{subject}' in project {project_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     if not subject:
         raise ValueError("Epic subject cannot be empty.")
     result = execute_taiga_operation("create_epic", lambda: taiga_client_wrapper.api.epics.create(project=project_id, subject=subject, **parsed_kwargs), f"epic '{subject}'")
@@ -33,19 +29,18 @@ def create_epic(project_id: int, subject: str, kwargs: Optional[Dict[str, Any]] 
 
 
 def get_epic(epic_id: int, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing get_epic ID {epic_id} for session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing get_epic ID {epic_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     result = execute_taiga_operation("get_epic", lambda: taiga_client_wrapper.api.epics.get(epic_id), f"epic {epic_id}")
     return filter_response(result, "epic", verbosity)
 
 
 def update_epic(epic_id: int, kwargs: Optional[Dict[str, Any]] = None, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
     parsed_kwargs = validate_kwargs("epic", kwargs or {})
-    logger.info(f"Executing update_epic ID {epic_id} for session {actual_session_id[:8]} with data: {parsed_kwargs}")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
-    try:
+    logger.info(f"Executing update_epic ID {epic_id} with data: {parsed_kwargs}")
+    taiga_client_wrapper = resolve_client(session_id)
+
+    def do_update():
         if not parsed_kwargs:
             result = taiga_client_wrapper.api.epics.get(epic_id)
             return filter_response(result, "epic", verbosity)
@@ -56,18 +51,13 @@ def update_epic(epic_id: int, kwargs: Optional[Dict[str, Any]] = None, session_i
         updated_epic = taiga_client_wrapper.api.epics.edit(epic_id=epic_id, version=version, **parsed_kwargs)
         logger.info(f"Epic {epic_id} update request sent.")
         return filter_response(updated_epic, "epic", verbosity)
-    except TaigaException as e:
-        logger.error(f"Taiga API error updating epic {epic_id}: {e}", exc_info=False)
-        raise e
-    except Exception as e:
-        logger.error(f"Unexpected error updating epic {epic_id}: {e}", exc_info=True)
-        raise RuntimeError(f"Server error updating epic: {e}")
+
+    return execute_taiga_operation("update_epic", do_update, f"epic {epic_id}")
 
 
 def delete_epic(epic_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.warning(f"Executing delete_epic ID {epic_id} for session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.warning(f"Executing delete_epic ID {epic_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
 
     def do_delete():
         taiga_client_wrapper.api.epics.delete(epic_id=epic_id)
@@ -77,37 +67,32 @@ def delete_epic(epic_id: int, session_id: Optional[str] = None) -> Dict[str, Any
 
 
 def assign_epic_to_user(epic_id: int, user_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing assign_epic_to_user: Epic {epic_id} -> User {user_id}, session {actual_session_id[:8]}...")
-    return update_epic(epic_id, {"assigned_to": user_id}, actual_session_id)
+    logger.info(f"Executing assign_epic_to_user: Epic {epic_id} -> User {user_id}...")
+    return update_epic(epic_id, {"assigned_to": user_id}, session_id)
 
 
 def unassign_epic_from_user(epic_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing unassign_epic_from_user: Epic {epic_id}, session {actual_session_id[:8]}...")
-    return update_epic(epic_id, {"assigned_to": None}, actual_session_id)
+    logger.info(f"Executing unassign_epic_from_user: Epic {epic_id}...")
+    return update_epic(epic_id, {"assigned_to": None}, session_id)
 
 
 def list_epic_user_stories(epic_id: int, session_id: Optional[str] = None, verbosity: str = "standard") -> List[Dict[str, Any]]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing list_epic_user_stories for epic {epic_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing list_epic_user_stories for epic {epic_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     result = execute_taiga_operation("list_epic_user_stories", lambda: taiga_client_wrapper.api.epics.list_related_user_stories(epic_id), f"epic {epic_id}")
     return filter_response(result, "epic_related_user_story", verbosity)
 
 
 def link_story_to_epic(epic_id: int, user_story_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing link_story_to_epic: Epic {epic_id} <- Story {user_story_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing link_story_to_epic: Epic {epic_id} <- Story {user_story_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     result = execute_taiga_operation("link_story_to_epic", lambda: taiga_client_wrapper.api.epics.add_related_user_story(epic_id, user_story_id, epic=epic_id), f"epic {epic_id} <- story {user_story_id}")
     return result if isinstance(result, dict) else {"status": "linked", "epic_id": epic_id, "user_story_id": user_story_id}
 
 
 def unlink_story_from_epic(epic_id: int, user_story_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing unlink_story_from_epic: Epic {epic_id} -/- Story {user_story_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing unlink_story_from_epic: Epic {epic_id} -/- Story {user_story_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
 
     def do_unlink():
         taiga_client_wrapper.api.epics.delete_related_user_story(epic_id, user_story_id)

@@ -7,49 +7,42 @@ stdio-mode login/logout/session tools.
 import logging
 from typing import Any, Dict
 
-from src.config import settings
-from src.session import get_oauth_bridge
+from src.session import current_oauth_sub, get_oauth_bridge, link_url
 
 logger = logging.getLogger(__name__)
 
 
-def _get_current_user_sub() -> str:
-    """Get the current OAuth user's sub claim from the MCP auth context."""
-    from mcp.server.auth.middleware.auth_context import get_access_token
-
-    access_token = get_access_token()
-    if not access_token:
-        raise PermissionError("Not authenticated. OAuth token required.")
-    return access_token.client_id  # We map JWT sub -> client_id in the verifier
-
-
 def taiga_link_status() -> Dict[str, Any]:
     """Check if your Taiga account is linked. Returns linking URL if not."""
-    oauth_sub = _get_current_user_sub()
+    oauth_sub = current_oauth_sub()
     bridge = get_oauth_bridge()
     if not bridge:
         raise RuntimeError("OAuth mode not configured")
 
     if bridge.credential_store.is_linked(oauth_sub):
-        return {"linked": True, "message": "Taiga account is linked and active."}
+        return {"linked": True, "message": "Taiga account is linked; tool calls act as that Taiga user."}
 
-    link_url = f"{settings.oauth_audience}/link-account"
     return {
         "linked": False,
-        "link_url": link_url,
-        "message": "Visit the link URL to connect your Taiga account.",
+        "link_url": link_url(),
+        "message": "No Taiga account is linked. Visit the link URL to connect one; until then every Taiga tool is refused.",
     }
 
 
 def taiga_unlink_account() -> Dict[str, Any]:
     """Unlink your Taiga account from your OAuth identity."""
-    oauth_sub = _get_current_user_sub()
+    oauth_sub = current_oauth_sub()
     bridge = get_oauth_bridge()
     if not bridge:
         raise RuntimeError("OAuth mode not configured")
 
-    bridge.handle_taiga_auth_failure(oauth_sub)
-    return {"status": "unlinked", "message": "Taiga account has been unlinked."}
+    revoked = bridge.unlink(oauth_sub)
+    return {
+        "status": "unlinked",
+        "revoked_in_taiga": revoked,
+        "message": "Taiga account has been unlinked."
+        + ("" if revoked else " The application token could not be revoked in Taiga; an administrator can remove it there."),
+    }
 
 
 def register(mcp):

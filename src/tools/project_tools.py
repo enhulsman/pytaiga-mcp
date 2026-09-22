@@ -3,10 +3,8 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from pytaigaclient.exceptions import TaigaException
-
 from src.response_filter import filter_response, validate_kwargs
-from src.session import execute_taiga_operation, get_authenticated_client, get_session_id
+from src.session import execute_taiga_operation, resolve_client
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +13,8 @@ def list_projects(
     session_id: Optional[str] = None, verbosity: str = "standard"
 ) -> List[Dict[str, Any]]:
     """Lists projects accessible by the authenticated user."""
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing list_projects for session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing list_projects...")
+    taiga_client_wrapper = resolve_client(session_id)
 
     result = execute_taiga_operation(
         "list_projects", lambda: taiga_client_wrapper.api.projects.list()
@@ -29,18 +26,16 @@ def list_all_projects(
     session_id: Optional[str] = None, verbosity: str = "standard"
 ) -> List[Dict[str, Any]]:
     """Lists all projects visible to the authenticated user."""
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing list_all_projects for session {actual_session_id[:8]}...")
-    return list_projects(actual_session_id, verbosity)
+    logger.info(f"Executing list_all_projects...")
+    return list_projects(session_id, verbosity)
 
 
 def get_project(
     project_id: int, session_id: Optional[str] = None, verbosity: str = "standard"
 ) -> Dict[str, Any]:
     """Retrieves project details by ID."""
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing get_project ID {project_id} for session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing get_project ID {project_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
 
     result = execute_taiga_operation(
         "get_project",
@@ -54,9 +49,8 @@ def get_project_by_slug(
     slug: str, session_id: Optional[str] = None, verbosity: str = "standard"
 ) -> Dict[str, Any]:
     """Retrieves project details by slug."""
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing get_project_by_slug '{slug}' for session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing get_project_by_slug '{slug}'...")
+    taiga_client_wrapper = resolve_client(session_id)
 
     result = execute_taiga_operation(
         "get_project_by_slug",
@@ -74,12 +68,11 @@ def create_project(
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
     """Creates a new project. Requires name and description. Optional args via kwargs dict."""
-    actual_session_id = get_session_id(session_id)
     parsed_kwargs = validate_kwargs("project", kwargs or {})
     logger.info(
-        f"Executing create_project '{name}' for session {actual_session_id[:8]} with data: {parsed_kwargs}"
+        f"Executing create_project '{name}' with data: {parsed_kwargs}"
     )
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    taiga_client_wrapper = resolve_client(session_id)
     if not name or not description:
         raise ValueError("Project name and description are required.")
 
@@ -100,13 +93,13 @@ def update_project(
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
     """Updates a project. Pass fields to update as kwargs dict."""
-    actual_session_id = get_session_id(session_id)
     parsed_kwargs = validate_kwargs("project", kwargs or {})
     logger.info(
-        f"Executing update_project ID {project_id} for session {actual_session_id[:8]} with data: {parsed_kwargs}"
+        f"Executing update_project ID {project_id} with data: {parsed_kwargs}"
     )
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
-    try:
+    taiga_client_wrapper = resolve_client(session_id)
+
+    def do_update():
         if not parsed_kwargs:
             logger.info(f"No fields provided for update on project {project_id}")
             result = taiga_client_wrapper.api.projects.get(project_id=project_id)
@@ -122,21 +115,16 @@ def update_project(
         )
         logger.info(f"Project {project_id} update request sent.")
         return filter_response(updated_project, "project", verbosity)
-    except TaigaException as e:
-        logger.error(f"Taiga API error updating project {project_id}: {e}", exc_info=False)
-        raise e
-    except Exception as e:
-        logger.error(f"Unexpected error updating project {project_id}: {e}", exc_info=True)
-        raise RuntimeError(f"Server error updating project: {e}")
+
+    return execute_taiga_operation("update_project", do_update, f"project {project_id}")
 
 
 def delete_project(project_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
     """Deletes a project by ID."""
-    actual_session_id = get_session_id(session_id)
     logger.warning(
-        f"Executing delete_project ID {project_id} for session {actual_session_id[:8]}..."
+        f"Executing delete_project ID {project_id}..."
     )
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    taiga_client_wrapper = resolve_client(session_id)
 
     def do_delete():
         taiga_client_wrapper.api.projects.delete(project_id=project_id)

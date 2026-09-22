@@ -1,6 +1,7 @@
 """SQLite-backed credential store with Fernet encryption.
 
-Maps OAuth sub claims to encrypted Taiga auth tokens.
+Maps OAuth sub claims to encrypted Taiga application tokens, plus the id of the
+token on the Taiga side so it can be revoked there on unlink.
 Uses SQLite with WAL mode for concurrent-safe access.
 """
 
@@ -41,9 +42,13 @@ class TaigaCredentialStore:
                 oauth_sub TEXT PRIMARY KEY,
                 taiga_token_encrypted BLOB NOT NULL,
                 linked_at REAL NOT NULL,
-                last_used_at REAL
+                last_used_at REAL,
+                taiga_app_token_id INTEGER
             )
         """)
+        columns = {row[1] for row in db.execute("PRAGMA table_info(credentials)")}
+        if "taiga_app_token_id" not in columns:
+            db.execute("ALTER TABLE credentials ADD COLUMN taiga_app_token_id INTEGER")
         db.commit()
         db.close()
 
@@ -78,19 +83,31 @@ class TaigaCredentialStore:
         finally:
             db.close()
 
-    def store_taiga_token(self, oauth_sub: str, taiga_auth_token: str):
-        """Encrypt and store Taiga auth token."""
+    def store_taiga_token(self, oauth_sub: str, taiga_auth_token: str, app_token_id: Optional[int] = None):
+        """Encrypt and store a Taiga token, with the Taiga-side application-token id if known."""
         encrypted = self.fernet.encrypt(taiga_auth_token.encode())
         db = sqlite3.connect(str(self.db_path))
         try:
             db.execute(
                 """INSERT OR REPLACE INTO credentials
-                   (oauth_sub, taiga_token_encrypted, linked_at, last_used_at)
-                   VALUES (?, ?, ?, ?)""",
-                (oauth_sub, encrypted, time.time(), time.time()),
+                   (oauth_sub, taiga_token_encrypted, linked_at, last_used_at, taiga_app_token_id)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (oauth_sub, encrypted, time.time(), time.time(), app_token_id),
             )
             db.commit()
             logger.info(f"Stored Taiga token for user {oauth_sub[:8]}...")
+        finally:
+            db.close()
+
+    def get_app_token_id(self, oauth_sub: str) -> Optional[int]:
+        """Id of the user's application token on the Taiga side (None if unknown or unlinked)."""
+        db = sqlite3.connect(str(self.db_path))
+        try:
+            row = db.execute(
+                "SELECT taiga_app_token_id FROM credentials WHERE oauth_sub = ?",
+                (oauth_sub,),
+            ).fetchone()
+            return row[0] if row and row[0] is not None else None
         finally:
             db.close()
 

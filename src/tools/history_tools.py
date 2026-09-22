@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from src.response_filter import filter_response
-from src.session import execute_taiga_operation, get_authenticated_client, get_session_id
+from src.session import execute_taiga_operation, resolve_client
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +36,8 @@ def list_history(object_type: str, object_id: int, session_id: Optional[str] = N
     """Lists history entries for an object, including comments and changes."""
     if object_type not in VALID_HISTORY_TYPES:
         raise ValueError(f"Invalid object_type '{object_type}'. Must be one of: {', '.join(sorted(VALID_HISTORY_TYPES))}")
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing list_history for {object_type}/{object_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing list_history for {object_type}/{object_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     result = execute_taiga_operation("list_history", lambda: taiga_client_wrapper.api.get(f"/history/{object_type}/{object_id}"), f"{object_type}/{object_id}")
     filtered = filter_response(result, "history_entry", verbosity)
     if verbosity != "full" and isinstance(filtered, list):
@@ -52,9 +51,8 @@ def add_comment(object_type: str, object_id: int, comment: str, session_id: Opti
         raise ValueError(f"Invalid object_type '{object_type}'. Must be one of: {', '.join(sorted(VALID_HISTORY_TYPES))}")
     if not comment or not comment.strip():
         raise ValueError("Comment cannot be empty")
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing add_comment to {object_type}/{object_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing add_comment to {object_type}/{object_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     resource_endpoint = HISTORY_TYPE_TO_RESOURCE[object_type]
 
     def do_add_comment():

@@ -52,3 +52,13 @@ Decide with Ezra, before code, the fallback for an unlinked identity: (a) act as
   - The startup service-account session in `src/server.py` also holds a 24 h token and nothing refreshes it. Production is expected to start returning 401 about a day after each restart. Not yet observed (deployed 2026-09-14). Fix alongside, or first as a hotfix.
 - Auth0 MCP server (`npx @auth0/auth0-mcp-server init --client claude-code --read-only`) will be installed by Ezra. It exposes applications, APIs, actions, logs and forms only: no users, connections or tenant settings. Use it to check the link application's callback; use the Auth0 dashboard or `auth0` CLI for Bas and Peter's accounts and the DCR setting.
 - Next action waits for Ezra to return with the Auth0 MCP installed.
+
+## Status 2026-09-22
+
+Implemented on branch `feat/per-user-identity` (tests first, 102 unit tests pass):
+
+- `src/session.py`: `resolve_client(session_id)` is the single entry point for tools. stdio unchanged; OAuth mode resolves the caller's subject through the bridge, refuses unlinked subjects with `NotLinkedError` (carries the link URL), rejects an explicit `session_id`, and turns a Taiga 401 into auto-unlink plus the link URL (403 untouched).
+- Linking mints a Taiga application token (`src/auth/application_token.py`) for Application `c733a0f2-b7c3-4b48-ba61-1f740547f6f9` ("Taiga MCP", created 2026-09-22 on the VPS). The credential store keeps the token and its Taiga-side id; unlink revokes it in Taiga (best effort) and forgets it locally.
+- All core tool modules call `resolve_client`; the seven `update_*` tools share `execute_taiga_operation`.
+
+Deploy: add `TAIGA_APPLICATION_ID` to the env on rp5, pull, restart `taiga-mcp`, then Ezra links his subject to `ezra-agent` at https://taiga-mcp.hulsman.dev/link-account (every tool refuses until then). Bas, Peter and Emiel link their own accounts the same way once they have Auth0 logins.

@@ -221,7 +221,7 @@ async def run_http_with_link_routes(mcp_server: FastMCP):
     bridge = get_oauth_bridge()
     if bridge:
         from src.auth.link_routes import create_link_routes
-        link_routes = create_link_routes(bridge.credential_store)
+        link_routes = create_link_routes(bridge.credential_store, bridge=bridge)
         if link_routes:
             extra_routes = link_routes
             logger.info(f"Mounted {len(link_routes)} link routes")

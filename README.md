@@ -206,15 +206,32 @@ new_story = client.call_tool("create_user_story", {
 })
 ```
 
-#### OAuth Mode (streamable-http): Single Service Account
+#### OAuth Mode (streamable-http): Per-User Taiga Identity
 
 In streamable-http mode with `OAUTH_ISSUER_URL` and `OAUTH_AUDIENCE` set, every MCP request must carry a bearer token issued by the configured OAuth provider (Auth0 in the reference deployment). The server publishes `/.well-known/oauth-protected-resource`, so MCP clients that support OAuth discover the provider on their own.
 
-**Who acts in Taiga.** OAuth only decides *who may call the server*. It does not choose the Taiga account. Every tool call, whichever OAuth identity made it, runs through the default session created at startup from `TAIGA_USERNAME` and `TAIGA_PASSWORD`. Deploy the server with a dedicated Taiga service account in those variables, and all agent activity is attributed to that account in Taiga.
+**Who acts in Taiga.** Each OAuth identity acts in Taiga as the Taiga account it has linked. Tool calls resolve their client through `resolve_client()` in `src/session.py`: the OAuth subject is looked up in the encrypted credential store and the stored Taiga token is used. Changes and comments are attributed to that Taiga user.
 
-**Per-user linking is present but not wired in.** The codebase contains a browser-based flow (`/link-account`), an encrypted credential store, an `OAuthSessionBridge`, and the `taiga_link_status` / `taiga_unlink_account` tools. They store a Taiga token per OAuth subject, but the core tools never read it: they resolve their client through `get_session_id()` and the default session. Treat the linking flow as inactive until the change below lands.
+**Unlinked identities are refused.** An OAuth identity without a linked Taiga account gets an error carrying the link URL from every Taiga tool, including read-only ones. There is no fallback to a shared account, so nobody sees more than their own Taiga permissions allow. The `taiga_link_status` tool reports the same URL. In OAuth mode the `session_id` parameter is rejected, so the startup session built from `TAIGA_USERNAME`/`TAIGA_PASSWORD` cannot be selected by hand; those variables are only needed for stdio mode.
 
-**Planned:** route tool calls through the session bridge in OAuth mode so each OAuth identity acts as its own Taiga user, or as the service account when unlinked. Until then the deployment is single-tenant: everyone who can obtain a token acts as the service account, so keep the OAuth application restricted to the intended users.
+**Linking.** Visiting `<public URL>/link-account` runs the browser flow: log in at the OAuth provider, then enter Taiga credentials once in a form served by this server. The server logs in to Taiga with them, authorizes the Taiga external Application named in `TAIGA_APPLICATION_ID`, and stores only the resulting application token, encrypted with `TAIGA_CREDENTIAL_ENCRYPTION_KEY`. Application tokens do not expire and identify the user, so no re-linking is needed. `taiga_unlink_account` revokes the token in Taiga and forgets it; a Taiga 401 on a stored token also removes the link automatically. Create the Application once in Taiga's Django admin (External apps) with `next_url` `<public URL>/link-account/done`, and put its id in the environment.
+
+**A shared agent identity** is still possible: link the OAuth identity that agents use to a dedicated Taiga service account through the same form.
+
+OAuth-mode environment variables:
+
+| Environment Variable | Description | Default |
+| --- | --- | --- |
+| `OAUTH_ISSUER_URL` | OAuth issuer, e.g. `https://<tenant>.eu.auth0.com/` | (none) |
+| `OAUTH_AUDIENCE` | API identifier, also the server's public URL | (none) |
+| `OAUTH_REQUIRED_SCOPES` | Comma-separated scopes a token must carry | (none) |
+| `JWKS_CACHE_TTL` | Seconds to cache the provider's signing keys | 600 |
+| `TAIGA_APPLICATION_ID` | Id of the Taiga external Application used to mint application tokens | (none) |
+| `TAIGA_CREDENTIAL_ENCRYPTION_KEY` | Fernet key for the credential store | (none) |
+| `TAIGA_CREDENTIAL_STORE_PATH` | SQLite file holding the encrypted tokens | `~/.taiga-mcp/credentials.db` |
+| `OAUTH_LINK_CLIENT_ID` | Provider application used by the browser linking flow | (none) |
+| `OAUTH_LINK_CLIENT_SECRET` | Its client secret | (none) |
+| `LINK_SESSION_TTL` | Lifetime in seconds of the linking flow's session cookie | 600 |
 
 #### OAuth Provider and claude.ai Connector Setup
 
@@ -381,7 +398,6 @@ All API operations return standardized error responses in the following format:
 
 The following features are planned for future releases:
 
-- Per-user Taiga identity in OAuth mode (wire the existing session bridge into the core tools)
 - Session expiration and automatic cleanup
 - Rate limiting for API calls
 - Retry mechanism with exponential backoff

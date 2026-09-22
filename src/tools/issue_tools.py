@@ -3,29 +3,25 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from pytaigaclient.exceptions import TaigaException
-
 from src.response_filter import filter_response, validate_kwargs
-from src.session import execute_taiga_operation, get_authenticated_client, get_session_id
+from src.session import execute_taiga_operation, resolve_client
 
 logger = logging.getLogger(__name__)
 
 
 def list_issues(project_id: int, filters: Optional[Dict[str, Any]] = None, session_id: Optional[str] = None, verbosity: str = "standard") -> List[Dict[str, Any]]:
-    actual_session_id = get_session_id(session_id)
     parsed_filters = filters or {}
-    logger.info(f"Executing list_issues for project {project_id}, session {actual_session_id[:8]}, filters: {parsed_filters}")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing list_issues for project {project_id}, filters: {parsed_filters}")
+    taiga_client_wrapper = resolve_client(session_id)
     query = {"project": project_id, **parsed_filters}
     result = execute_taiga_operation("list_issues", lambda: taiga_client_wrapper.api.issues.list(query_params=query), f"project {project_id}")
     return filter_response(result, "issue", verbosity)
 
 
 def create_issue(project_id: int, subject: str, priority_id: int, status_id: int, severity_id: int, type_id: int, kwargs: Optional[Dict[str, Any]] = None, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
     parsed_kwargs = validate_kwargs("issue", kwargs or {})
-    logger.info(f"Executing create_issue '{subject}' in project {project_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing create_issue '{subject}' in project {project_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     if not subject:
         raise ValueError("Issue subject cannot be empty.")
     issue_data = {"priority": priority_id, "status": status_id, "type": type_id, "severity": severity_id, **parsed_kwargs}
@@ -34,19 +30,18 @@ def create_issue(project_id: int, subject: str, priority_id: int, status_id: int
 
 
 def get_issue(issue_id: int, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing get_issue ID {issue_id} for session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing get_issue ID {issue_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     result = execute_taiga_operation("get_issue", lambda: taiga_client_wrapper.api.issues.get(issue_id), f"issue {issue_id}")
     return filter_response(result, "issue", verbosity)
 
 
 def update_issue(issue_id: int, kwargs: Optional[Dict[str, Any]] = None, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
     parsed_kwargs = validate_kwargs("issue", kwargs or {})
-    logger.info(f"Executing update_issue ID {issue_id} for session {actual_session_id[:8]} with data: {parsed_kwargs}")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
-    try:
+    logger.info(f"Executing update_issue ID {issue_id} with data: {parsed_kwargs}")
+    taiga_client_wrapper = resolve_client(session_id)
+
+    def do_update():
         if not parsed_kwargs:
             result = taiga_client_wrapper.api.issues.get(issue_id)
             return filter_response(result, "issue", verbosity)
@@ -57,18 +52,13 @@ def update_issue(issue_id: int, kwargs: Optional[Dict[str, Any]] = None, session
         updated_issue = taiga_client_wrapper.api.issues.edit(issue_id=issue_id, version=version, data=parsed_kwargs)
         logger.info(f"Issue {issue_id} update request sent.")
         return filter_response(updated_issue, "issue", verbosity)
-    except TaigaException as e:
-        logger.error(f"Taiga API error updating issue {issue_id}: {e}", exc_info=False)
-        raise e
-    except Exception as e:
-        logger.error(f"Unexpected error updating issue {issue_id}: {e}", exc_info=True)
-        raise RuntimeError(f"Server error updating issue: {e}")
+
+    return execute_taiga_operation("update_issue", do_update, f"issue {issue_id}")
 
 
 def delete_issue(issue_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.warning(f"Executing delete_issue ID {issue_id} for session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.warning(f"Executing delete_issue ID {issue_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
 
     def do_delete():
         taiga_client_wrapper.api.issues.delete(issue_id=issue_id)
@@ -78,42 +68,36 @@ def delete_issue(issue_id: int, session_id: Optional[str] = None) -> Dict[str, A
 
 
 def assign_issue_to_user(issue_id: int, user_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing assign_issue_to_user: Issue {issue_id} -> User {user_id}, session {actual_session_id[:8]}...")
-    return update_issue(issue_id, {"assigned_to": user_id}, actual_session_id)
+    logger.info(f"Executing assign_issue_to_user: Issue {issue_id} -> User {user_id}...")
+    return update_issue(issue_id, {"assigned_to": user_id}, session_id)
 
 
 def unassign_issue_from_user(issue_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing unassign_issue_from_user: Issue {issue_id}, session {actual_session_id[:8]}...")
-    return update_issue(issue_id, {"assigned_to": None}, actual_session_id)
+    logger.info(f"Executing unassign_issue_from_user: Issue {issue_id}...")
+    return update_issue(issue_id, {"assigned_to": None}, session_id)
 
 
 def get_issue_statuses(project_id: int, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing get_issue_statuses for project {project_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing get_issue_statuses for project {project_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     return execute_taiga_operation("get_issue_statuses", lambda: taiga_client_wrapper.api.issue_statuses.list(query_params={"project": project_id}), f"project {project_id}")
 
 
 def get_issue_priorities(project_id: int, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing get_issue_priorities for project {project_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing get_issue_priorities for project {project_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     return execute_taiga_operation("get_issue_priorities", lambda: taiga_client_wrapper.api.issue_priorities.list(query_params={"project": project_id}), f"project {project_id}")
 
 
 def get_issue_severities(project_id: int, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing get_issue_severities for project {project_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing get_issue_severities for project {project_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     return execute_taiga_operation("get_issue_severities", lambda: taiga_client_wrapper.api.issue_severities.list(query_params={"project": project_id}), f"project {project_id}")
 
 
 def get_issue_types(project_id: int, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing get_issue_types for project {project_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing get_issue_types for project {project_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     return execute_taiga_operation("get_issue_types", lambda: taiga_client_wrapper.api.issue_types.list(query_params={"project": project_id}), f"project {project_id}")
 
 

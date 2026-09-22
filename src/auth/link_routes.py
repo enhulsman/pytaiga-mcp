@@ -7,7 +7,8 @@ Flow:
 1. User visits /link-account -> OAuth redirect to Auth0 (PKCE)
 2. Auth0 callback -> session cookie set
 3. /link-account/form -> HTML form for Taiga credentials
-4. POST /link-account/form -> authenticate to Taiga, store token
+4. POST /link-account/form -> log in to Taiga once, mint a non-expiring Taiga
+   application token for the configured Application, store only that token
 """
 
 import base64
@@ -25,6 +26,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
 
+from src.auth.application_token import mint_application_token
 from src.auth.credential_store import TaigaCredentialStore
 from src.config import settings
 from src.taiga_client import TaigaClientWrapper
@@ -85,8 +87,12 @@ def _verify_session(cookie_value: str, session_key: bytes) -> Optional[str]:
         return None
 
 
-def create_link_routes(credential_store: TaigaCredentialStore) -> list[Route]:
-    """Create Starlette routes for the credential linking flow."""
+def create_link_routes(credential_store: TaigaCredentialStore, bridge=None) -> list[Route]:
+    """Create Starlette routes for the credential linking flow.
+
+    `bridge` (an OAuthSessionBridge) is optional; when given, unlinking also
+    revokes the application token on the Taiga side.
+    """
 
     encryption_key = settings.get_encryption_key()
     if not encryption_key:
@@ -232,7 +238,7 @@ button:hover{{background:#3b4252}}</style></head>
 <body>
 <h1>Link Taiga Account</h1>
 {status_msg}
-<p>Enter your Taiga credentials to link your account. Your password is sent directly to the Taiga server and is never stored.</p>
+<p>Enter your Taiga credentials to link your account. Your password is used once to authorize the Taiga MCP application on the Taiga server and is never stored; Taiga issues a revocable application token instead.</p>
 <form method="POST" action="{request.url_for('link_form_submit')}">
 <label>Taiga Username</label>
 <input type="text" name="username" required autocomplete="username">
@@ -257,14 +263,19 @@ button:hover{{background:#3b4252}}</style></head>
         if not username or not password:
             return HTMLResponse("<h1>Username and password required</h1>", status_code=400)
 
-        # Authenticate to Taiga in thread pool (blocking I/O)
-        try:
-            def _do_taiga_login():
-                client = TaigaClientWrapper(host=settings.host)
-                client.login(username=username, password=password)
-                return client.api.auth_token
+        application_id = settings.taiga_application_id
+        if not application_id:
+            logger.error("TAIGA_APPLICATION_ID is not set; cannot mint application tokens")
+            return HTMLResponse("<h1>Linking not configured</h1>", status_code=503)
 
-            taiga_token = await anyio.to_thread.run_sync(_do_taiga_login)
+        # Log in to Taiga and mint the application token in a thread (blocking I/O)
+        def _do_taiga_login():
+            client = TaigaClientWrapper(host=settings.host)
+            client.login(username=username, password=password)
+            return client
+
+        try:
+            bearer_client = await anyio.to_thread.run_sync(_do_taiga_login)
         except Exception as e:
             logger.error(f"Taiga login failed during linking: {e}")
             return HTMLResponse(
@@ -272,8 +283,19 @@ button:hover{{background:#3b4252}}</style></head>
                 status_code=401,
             )
 
-        # Store encrypted token
-        credential_store.store_taiga_token(sub, taiga_token)
+        try:
+            taiga_token, app_token_id = await anyio.to_thread.run_sync(
+                lambda: mint_application_token(bearer_client, application_id)
+            )
+        except Exception as e:
+            logger.error(f"Minting the Taiga application token failed: {e}")
+            return HTMLResponse(
+                "<h1>Linking Failed</h1><p>Taiga accepted the login but did not issue an application token. Ask the administrator to check the Application configuration.</p>",
+                status_code=502,
+            )
+
+        # Store the encrypted application token (never the password or the Bearer token)
+        credential_store.store_taiga_token(sub, taiga_token, app_token_id=app_token_id)
 
         # Clear session cookie
         response = HTMLResponse(
@@ -333,14 +355,29 @@ button:hover{{background:#3b4252}}</style></head>
         if not sub:
             return JSONResponse({"error": "unauthorized"}, status_code=401)
 
-        credential_store.remove_user(sub)
+        if bridge is not None:
+            bridge.unlink(sub)
+        else:
+            credential_store.remove_user(sub)
         return JSONResponse({"status": "unlinked", "oauth_sub": sub[:8] + "..."})
+
+    async def link_done(request: Request) -> Response:
+        """Landing page registered as the Application's next_url in Taiga.
+
+        The server mints tokens itself, so nobody should arrive here through
+        taiga-front's authorization page; point them at the real flow.
+        """
+        return HTMLResponse(
+            "<h1>Taiga MCP</h1><p>Account linking is done at "
+            f"<a href=\"{request.url_for('link_account')}\">/link-account</a>.</p>"
+        )
 
     return [
         Route("/link-account", link_account, methods=["GET"], name="link_account"),
         Route("/link-account/callback", link_callback, methods=["GET"], name="link_callback"),
         Route("/link-account/form", link_form, methods=["GET"], name="link_form"),
         Route("/link-account/form", link_form_submit, methods=["POST"], name="link_form_submit"),
+        Route("/link-account/done", link_done, methods=["GET"], name="link_done"),
         Route("/link-status", link_status, methods=["GET"]),
         Route("/unlink-account", unlink_account, methods=["POST"]),
     ]

@@ -48,7 +48,7 @@ class TestSessionBridge:
 
             client = await bridge.get_client("auth0|user1")
             assert client is not None
-            mock_instance.set_token.assert_called_once_with("test-taiga-token")
+            mock_instance.set_token.assert_called_once_with("test-taiga-token", token_type="Application")
 
     @pytest.mark.asyncio
     async def test_cached_client_reused(self, bridge, credential_store):
@@ -116,5 +116,56 @@ class TestSessionBridge:
             client2 = await bridge.get_client("auth0|user2")
 
             assert client1 is not client2
-            mock1.set_token.assert_called_once_with("token1")
-            mock2.set_token.assert_called_once_with("token2")
+            mock1.set_token.assert_called_once_with("token1", token_type="Application")
+            mock2.set_token.assert_called_once_with("token2", token_type="Application")
+
+
+class TestApplicationTokenBridge:
+    def test_client_uses_application_token_type(self, bridge, credential_store):
+        credential_store.store_taiga_token("auth0|user1", "app-token", app_token_id=42)
+        with patch("src.auth.session_bridge.TaigaClientWrapper") as MockClient:
+            instance = MagicMock()
+            instance.is_authenticated = True
+            MockClient.return_value = instance
+            client = bridge.get_client_sync("auth0|user1")
+        assert client is instance
+        instance.set_token.assert_called_once_with("app-token", token_type="Application")
+
+    def test_get_client_sync_unlinked_returns_none(self, bridge):
+        assert bridge.get_client_sync("auth0|unknown") is None
+
+    def test_unlink_revokes_in_taiga_and_removes_locally(self, bridge, credential_store):
+        credential_store.store_taiga_token("auth0|user1", "app-token", app_token_id=42)
+        with patch("src.auth.session_bridge.TaigaClientWrapper") as MockClient:
+            instance = MagicMock()
+            instance.is_authenticated = True
+            MockClient.return_value = instance
+            revoked = bridge.unlink("auth0|user1")
+        assert revoked is True
+        instance.api.delete.assert_called_once_with("/application-tokens/42")
+        assert credential_store.is_linked("auth0|user1") is False
+
+    def test_unlink_still_removes_locally_when_taiga_call_fails(self, bridge, credential_store):
+        credential_store.store_taiga_token("auth0|user1", "app-token", app_token_id=42)
+        with patch("src.auth.session_bridge.TaigaClientWrapper") as MockClient:
+            instance = MagicMock()
+            instance.is_authenticated = True
+            instance.api.delete.side_effect = RuntimeError("taiga down")
+            MockClient.return_value = instance
+            revoked = bridge.unlink("auth0|user1")
+        assert revoked is False
+        assert credential_store.is_linked("auth0|user1") is False
+
+    def test_unlink_without_token_id_skips_taiga_call(self, bridge, credential_store):
+        credential_store.store_taiga_token("auth0|user1", "app-token")
+        with patch("src.auth.session_bridge.TaigaClientWrapper") as MockClient:
+            instance = MagicMock()
+            instance.is_authenticated = True
+            MockClient.return_value = instance
+            revoked = bridge.unlink("auth0|user1")
+        assert revoked is False
+        instance.api.delete.assert_not_called()
+        assert credential_store.is_linked("auth0|user1") is False
+
+    def test_unlink_unknown_user_is_noop(self, bridge):
+        assert bridge.unlink("auth0|nobody") is False

@@ -101,6 +101,11 @@ class TaigaSettings(BaseSettings):
         alias="OAUTH_LINK_CLIENT_SECRET",
         description="Auth0 app client secret for the browser linking flow",
     )
+    taiga_application_id: Optional[str] = Field(
+        default=None,
+        alias="TAIGA_APPLICATION_ID",
+        description="Id of the Taiga external Application used to mint per-user application tokens",
+    )
     link_session_ttl: int = Field(
         default=600,
         alias="LINK_SESSION_TTL",

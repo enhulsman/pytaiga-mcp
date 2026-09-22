@@ -3,26 +3,22 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from pytaigaclient.exceptions import TaigaException
-
 from src.response_filter import filter_response, validate_kwargs
-from src.session import execute_taiga_operation, get_authenticated_client, get_session_id
+from src.session import execute_taiga_operation, resolve_client
 
 logger = logging.getLogger(__name__)
 
 
 def list_milestones(project_id: int, closed: Optional[bool] = None, session_id: Optional[str] = None, verbosity: str = "standard") -> List[Dict[str, Any]]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing list_milestones for project {project_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing list_milestones for project {project_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     result = execute_taiga_operation("list_milestones", lambda: taiga_client_wrapper.api.milestones.list(project=project_id, closed=closed), f"project {project_id}")
     return filter_response(result, "milestone", verbosity)
 
 
 def create_milestone(project_id: int, name: str, estimated_start: str, estimated_finish: str, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing create_milestone '{name}' in project {project_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing create_milestone '{name}' in project {project_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     if not all([name, estimated_start, estimated_finish]):
         raise ValueError("Milestone requires name, estimated_start, and estimated_finish.")
     result = execute_taiga_operation("create_milestone", lambda: taiga_client_wrapper.api.milestones.create(project=project_id, name=name, estimated_start=estimated_start, estimated_finish=estimated_finish), f"milestone '{name}'")
@@ -30,19 +26,18 @@ def create_milestone(project_id: int, name: str, estimated_start: str, estimated
 
 
 def get_milestone(milestone_id: int, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing get_milestone ID {milestone_id} for session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing get_milestone ID {milestone_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     result = execute_taiga_operation("get_milestone", lambda: taiga_client_wrapper.api.milestones.get(milestone_id), f"milestone {milestone_id}")
     return filter_response(result, "milestone", verbosity)
 
 
 def update_milestone(milestone_id: int, kwargs: Optional[Dict[str, Any]] = None, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
     parsed_kwargs = validate_kwargs("milestone", kwargs or {})
-    logger.info(f"Executing update_milestone ID {milestone_id} for session {actual_session_id[:8]} with data: {parsed_kwargs}")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
-    try:
+    logger.info(f"Executing update_milestone ID {milestone_id} with data: {parsed_kwargs}")
+    taiga_client_wrapper = resolve_client(session_id)
+
+    def do_update():
         if not parsed_kwargs:
             result = taiga_client_wrapper.api.milestones.get(milestone_id)
             return filter_response(result, "milestone", verbosity)
@@ -53,18 +48,13 @@ def update_milestone(milestone_id: int, kwargs: Optional[Dict[str, Any]] = None,
         updated_milestone = taiga_client_wrapper.api.milestones.edit(milestone_id=milestone_id, version=version, **parsed_kwargs)
         logger.info(f"Milestone {milestone_id} update request sent.")
         return filter_response(updated_milestone, "milestone", verbosity)
-    except TaigaException as e:
-        logger.error(f"Taiga API error updating milestone {milestone_id}: {e}", exc_info=False)
-        raise e
-    except Exception as e:
-        logger.error(f"Unexpected error updating milestone {milestone_id}: {e}", exc_info=True)
-        raise RuntimeError(f"Server error updating milestone: {e}")
+
+    return execute_taiga_operation("update_milestone", do_update, f"milestone {milestone_id}")
 
 
 def delete_milestone(milestone_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.warning(f"Executing delete_milestone ID {milestone_id} for session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.warning(f"Executing delete_milestone ID {milestone_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
 
     def do_delete():
         taiga_client_wrapper.api.milestones.delete(milestone_id=milestone_id)
@@ -74,9 +64,8 @@ def delete_milestone(milestone_id: int, session_id: Optional[str] = None) -> Dic
 
 
 def get_milestone_stats(milestone_id: int, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing get_milestone_stats for milestone {milestone_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing get_milestone_stats for milestone {milestone_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     result = execute_taiga_operation("get_milestone_stats", lambda: taiga_client_wrapper.api.milestones.stats(milestone_id), f"milestone {milestone_id}")
     return filter_response(result, "milestone_stats", verbosity)
 

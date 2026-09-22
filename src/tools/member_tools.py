@@ -4,23 +4,21 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from src.response_filter import filter_response
-from src.session import execute_taiga_operation, get_authenticated_client, get_session_id
+from src.session import execute_taiga_operation, resolve_client
 
 logger = logging.getLogger(__name__)
 
 
 def get_project_members(project_id: int, session_id: Optional[str] = None, verbosity: str = "standard") -> List[Dict[str, Any]]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing get_project_members for project {project_id}, session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing get_project_members for project {project_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     result = execute_taiga_operation("get_project_members", lambda: taiga_client_wrapper.api.memberships.list(query_params={"project": project_id}), f"project {project_id}")
     return filter_response(result, "member", verbosity)
 
 
 def invite_project_user(project_id: int, email: str, role_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing invite_project_user {email} to project {project_id} (role {role_id}), session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing invite_project_user {email} to project {project_id} (role {role_id})...")
+    taiga_client_wrapper = resolve_client(session_id)
     if not email:
         raise ValueError("Email cannot be empty.")
 

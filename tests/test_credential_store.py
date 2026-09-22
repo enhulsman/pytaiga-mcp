@@ -94,3 +94,44 @@ class TestCredentialStore:
     def test_remove_nonexistent_user_no_error(self, store):
         """Removing a non-existent user doesn't raise."""
         store.remove_user("auth0|nonexistent")  # Should not raise
+
+
+class TestApplicationTokenColumns:
+    def test_store_and_read_taiga_token_id(self, store):
+        store.store_taiga_token("auth0|user1", "app-token", app_token_id=42)
+        assert store.get_taiga_token("auth0|user1") == "app-token"
+        assert store.get_app_token_id("auth0|user1") == 42
+
+    def test_token_id_defaults_to_none(self, store):
+        store.store_taiga_token("auth0|user1", "app-token")
+        assert store.get_app_token_id("auth0|user1") is None
+
+    def test_token_id_for_unknown_user_is_none(self, store):
+        assert store.get_app_token_id("auth0|nobody") is None
+
+    def test_existing_database_without_column_is_migrated(self, store_path):
+        """A store created by the previous schema keeps working and gains the column."""
+        import sqlite3
+
+        db_path = os.path.join(store_path, "old.db")
+        db = sqlite3.connect(db_path)
+        db.execute(
+            """CREATE TABLE credentials (
+                oauth_sub TEXT PRIMARY KEY,
+                taiga_token_encrypted BLOB NOT NULL,
+                linked_at REAL NOT NULL,
+                last_used_at REAL)"""
+        )
+        key = Fernet.generate_key().decode()
+        db.execute(
+            "INSERT INTO credentials VALUES (?, ?, 1.0, NULL)",
+            ("auth0|old", Fernet(key.encode()).encrypt(b"old-token")),
+        )
+        db.commit()
+        db.close()
+
+        migrated = TaigaCredentialStore(db_path=db_path, encryption_key=key)
+        assert migrated.get_taiga_token("auth0|old") == "old-token"
+        assert migrated.get_app_token_id("auth0|old") is None
+        migrated.store_taiga_token("auth0|old", "new-token", app_token_id=5)
+        assert migrated.get_app_token_id("auth0|old") == 5

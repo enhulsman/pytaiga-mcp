@@ -47,11 +47,15 @@ class OAuthSessionBridge:
 
         async with lock:
             return await anyio.to_thread.run_sync(
-                lambda: self._get_client_sync(oauth_sub)
+                lambda: self.get_client_sync(oauth_sub)
             )
 
-    def _get_client_sync(self, oauth_sub: str) -> Optional[TaigaClientWrapper]:
-        """Synchronous client resolution (runs in thread pool)."""
+    def get_client_sync(self, oauth_sub: str) -> Optional[TaigaClientWrapper]:
+        """Synchronous client resolution.
+
+        Used directly by tool calls: FastMCP invokes synchronous tools on the event
+        loop, so they cannot await get_client(); they are serialized by the loop.
+        """
         # 1. Check in-memory TTLCache
         if oauth_sub in self._active_clients:
             client = self._active_clients[oauth_sub]
@@ -62,19 +66,40 @@ class OAuthSessionBridge:
         taiga_token = self.credential_store.get_taiga_token(oauth_sub)
         if taiga_token:
             client = TaigaClientWrapper(host=self.taiga_host)
-            client.set_token(taiga_token)
+            client.set_token(taiga_token, token_type="Application")
             self._active_clients[oauth_sub] = client
             return client
 
         # 3. Not linked
         return None
 
-    def handle_taiga_auth_failure(self, oauth_sub: str):
-        """Called when Taiga returns 401. Auto-unlink stale tokens."""
+    def _forget(self, oauth_sub: str):
+        """Drop the cached client and the stored credentials for a user."""
         self._active_clients.pop(oauth_sub, None)
         self.credential_store.remove_user(oauth_sub)
         self._user_locks.pop(oauth_sub, None)
+
+    def handle_taiga_auth_failure(self, oauth_sub: str):
+        """Called when Taiga returns 401. Auto-unlink stale tokens."""
+        self._forget(oauth_sub)
         logger.warning(f"Auto-unlinked user {oauth_sub[:8]}... due to Taiga auth failure")
+
+    def unlink(self, oauth_sub: str) -> bool:
+        """Deliberate unlink: revoke the application token in Taiga (best effort),
+        then forget the user locally. Returns True if Taiga confirmed the revocation."""
+        revoked = False
+        app_token_id = self.credential_store.get_app_token_id(oauth_sub)
+        if app_token_id is not None:
+            client = self.get_client_sync(oauth_sub)
+            if client is not None:
+                try:
+                    client.api.delete(f"/application-tokens/{app_token_id}")
+                    revoked = True
+                except Exception as e:
+                    logger.warning(f"Could not revoke Taiga application token for {oauth_sub[:8]}...: {e}")
+        self._forget(oauth_sub)
+        logger.info(f"Unlinked user {oauth_sub[:8]}... (revoked in Taiga: {revoked})")
+        return revoked
 
     def invalidate_cached_client(self, oauth_sub: str):
         """Remove a user's cached client (without removing stored credentials)."""

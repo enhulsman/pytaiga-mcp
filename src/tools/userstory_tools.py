@@ -3,10 +3,8 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from pytaigaclient.exceptions import TaigaException
-
 from src.response_filter import filter_response, validate_kwargs
-from src.session import execute_taiga_operation, get_authenticated_client, get_session_id
+from src.session import execute_taiga_operation, resolve_client
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +16,11 @@ def list_user_stories(
     verbosity: str = "standard",
 ) -> List[Dict[str, Any]]:
     """Lists user stories for a project."""
-    actual_session_id = get_session_id(session_id)
     parsed_filters = filters or {}
     logger.info(
-        f"Executing list_user_stories for project {project_id}, session {actual_session_id[:8]}, filters: {parsed_filters}"
+        f"Executing list_user_stories for project {project_id}, filters: {parsed_filters}"
     )
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    taiga_client_wrapper = resolve_client(session_id)
 
     result = execute_taiga_operation(
         "list_user_stories",
@@ -41,12 +38,11 @@ def create_user_story(
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
     """Creates a user story. Requires project_id and subject."""
-    actual_session_id = get_session_id(session_id)
     parsed_kwargs = validate_kwargs("user_story", kwargs or {})
     logger.info(
-        f"Executing create_user_story '{subject}' in project {project_id}, session {actual_session_id[:8]}..."
+        f"Executing create_user_story '{subject}' in project {project_id}..."
     )
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    taiga_client_wrapper = resolve_client(session_id)
     if not subject:
         raise ValueError("User story subject cannot be empty.")
 
@@ -64,11 +60,10 @@ def get_user_story(
     user_story_id: int, session_id: Optional[str] = None, verbosity: str = "standard"
 ) -> Dict[str, Any]:
     """Retrieves user story details by ID."""
-    actual_session_id = get_session_id(session_id)
     logger.info(
-        f"Executing get_user_story ID {user_story_id} for session {actual_session_id[:8]}..."
+        f"Executing get_user_story ID {user_story_id}..."
     )
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    taiga_client_wrapper = resolve_client(session_id)
 
     result = execute_taiga_operation(
         "get_user_story",
@@ -85,13 +80,13 @@ def update_user_story(
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
     """Updates a user story. Pass fields to update as kwargs dict."""
-    actual_session_id = get_session_id(session_id)
     parsed_kwargs = validate_kwargs("user_story", kwargs or {})
     logger.info(
-        f"Executing update_user_story ID {user_story_id} for session {actual_session_id[:8]} with data: {parsed_kwargs}"
+        f"Executing update_user_story ID {user_story_id} with data: {parsed_kwargs}"
     )
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
-    try:
+    taiga_client_wrapper = resolve_client(session_id)
+
+    def do_update():
         if not parsed_kwargs:
             logger.info(f"No fields provided for update on user story {user_story_id}")
             result = taiga_client_wrapper.api.user_stories.get(user_story_id)
@@ -107,25 +102,16 @@ def update_user_story(
         )
         logger.info(f"User story {user_story_id} update request sent.")
         return filter_response(updated_story, "user_story", verbosity)
-    except TaigaException as e:
-        logger.error(
-            f"Taiga API error updating user story {user_story_id}: {e}", exc_info=False
-        )
-        raise e
-    except Exception as e:
-        logger.error(
-            f"Unexpected error updating user story {user_story_id}: {e}", exc_info=True
-        )
-        raise RuntimeError(f"Server error updating user story: {e}")
+
+    return execute_taiga_operation("update_user_story", do_update, f"user story {user_story_id}")
 
 
 def delete_user_story(user_story_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
     """Deletes a user story by ID."""
-    actual_session_id = get_session_id(session_id)
     logger.warning(
-        f"Executing delete_user_story ID {user_story_id} for session {actual_session_id[:8]}..."
+        f"Executing delete_user_story ID {user_story_id}..."
     )
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    taiga_client_wrapper = resolve_client(session_id)
 
     def do_delete():
         taiga_client_wrapper.api.user_stories.delete(user_story_id=user_story_id)
@@ -138,33 +124,30 @@ def assign_user_story_to_user(
     user_story_id: int, user_id: int, session_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """Assigns a user story to a user."""
-    actual_session_id = get_session_id(session_id)
     logger.info(
-        f"Executing assign_user_story_to_user: US {user_story_id} -> User {user_id}, session {actual_session_id[:8]}..."
+        f"Executing assign_user_story_to_user: US {user_story_id} -> User {user_id}..."
     )
-    return update_user_story(user_story_id, {"assigned_to": user_id}, actual_session_id)
+    return update_user_story(user_story_id, {"assigned_to": user_id}, session_id)
 
 
 def unassign_user_story_from_user(
     user_story_id: int, session_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """Unassigns a user story."""
-    actual_session_id = get_session_id(session_id)
     logger.info(
-        f"Executing unassign_user_story_from_user: US {user_story_id}, session {actual_session_id[:8]}..."
+        f"Executing unassign_user_story_from_user: US {user_story_id}..."
     )
-    return update_user_story(user_story_id, {"assigned_to": None}, actual_session_id)
+    return update_user_story(user_story_id, {"assigned_to": None}, session_id)
 
 
 def get_user_story_statuses(
     project_id: int, session_id: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """Retrieves the list of user story statuses for a project."""
-    actual_session_id = get_session_id(session_id)
     logger.info(
-        f"Executing get_user_story_statuses for project {project_id}, session {actual_session_id[:8]}..."
+        f"Executing get_user_story_statuses for project {project_id}..."
     )
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    taiga_client_wrapper = resolve_client(session_id)
 
     return execute_taiga_operation(
         "get_user_story_statuses",

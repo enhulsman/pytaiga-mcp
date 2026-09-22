@@ -3,10 +3,8 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from pytaigaclient.exceptions import TaigaException
-
 from src.response_filter import filter_response, validate_kwargs
-from src.session import execute_taiga_operation, get_authenticated_client, get_session_id
+from src.session import execute_taiga_operation, resolve_client
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +16,11 @@ def list_tasks(
     verbosity: str = "standard",
 ) -> List[Dict[str, Any]]:
     """Lists tasks for a project."""
-    actual_session_id = get_session_id(session_id)
     parsed_filters = filters or {}
     logger.info(
-        f"Executing list_tasks for project {project_id}, session {actual_session_id[:8]}, filters: {parsed_filters}"
+        f"Executing list_tasks for project {project_id}, filters: {parsed_filters}"
     )
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    taiga_client_wrapper = resolve_client(session_id)
     query = {"project": project_id, **parsed_filters}
     result = execute_taiga_operation(
         "list_tasks",
@@ -41,12 +38,11 @@ def create_task(
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
     """Creates a task."""
-    actual_session_id = get_session_id(session_id)
     parsed_kwargs = validate_kwargs("task", kwargs or {})
     logger.info(
-        f"Executing create_task '{subject}' in project {project_id}, session {actual_session_id[:8]}..."
+        f"Executing create_task '{subject}' in project {project_id}..."
     )
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    taiga_client_wrapper = resolve_client(session_id)
     if not subject:
         raise ValueError("Task subject cannot be empty.")
     result = execute_taiga_operation(
@@ -63,9 +59,8 @@ def get_task(
     task_id: int, session_id: Optional[str] = None, verbosity: str = "standard"
 ) -> Dict[str, Any]:
     """Retrieves task details by ID."""
-    actual_session_id = get_session_id(session_id)
-    logger.info(f"Executing get_task ID {task_id} for session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.info(f"Executing get_task ID {task_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
     result = execute_taiga_operation(
         "get_task", lambda: taiga_client_wrapper.api.tasks.get(task_id), f"task {task_id}"
     )
@@ -79,13 +74,13 @@ def update_task(
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
     """Updates a task."""
-    actual_session_id = get_session_id(session_id)
     parsed_kwargs = validate_kwargs("task", kwargs or {})
     logger.info(
-        f"Executing update_task ID {task_id} for session {actual_session_id[:8]} with data: {parsed_kwargs}"
+        f"Executing update_task ID {task_id} with data: {parsed_kwargs}"
     )
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
-    try:
+    taiga_client_wrapper = resolve_client(session_id)
+
+    def do_update():
         if not parsed_kwargs:
             result = taiga_client_wrapper.api.tasks.get(task_id)
             return filter_response(result, "task", verbosity)
@@ -98,19 +93,14 @@ def update_task(
         )
         logger.info(f"Task {task_id} update request sent.")
         return filter_response(updated_task, "task", verbosity)
-    except TaigaException as e:
-        logger.error(f"Taiga API error updating task {task_id}: {e}", exc_info=False)
-        raise e
-    except Exception as e:
-        logger.error(f"Unexpected error updating task {task_id}: {e}", exc_info=True)
-        raise RuntimeError(f"Server error updating task: {e}")
+
+    return execute_taiga_operation("update_task", do_update, f"task {task_id}")
 
 
 def delete_task(task_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
     """Deletes a task by ID."""
-    actual_session_id = get_session_id(session_id)
-    logger.warning(f"Executing delete_task ID {task_id} for session {actual_session_id[:8]}...")
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    logger.warning(f"Executing delete_task ID {task_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
 
     def do_delete():
         taiga_client_wrapper.api.tasks.delete(task_id=task_id)
@@ -123,29 +113,26 @@ def assign_task_to_user(
     task_id: int, user_id: int, session_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """Assigns a task to a user."""
-    actual_session_id = get_session_id(session_id)
     logger.info(
-        f"Executing assign_task_to_user: Task {task_id} -> User {user_id}, session {actual_session_id[:8]}..."
+        f"Executing assign_task_to_user: Task {task_id} -> User {user_id}..."
     )
-    return update_task(task_id, {"assigned_to": user_id}, actual_session_id)
+    return update_task(task_id, {"assigned_to": user_id}, session_id)
 
 
 def unassign_task_from_user(task_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
     """Unassigns a task."""
-    actual_session_id = get_session_id(session_id)
     logger.info(
-        f"Executing unassign_task_from_user: Task {task_id}, session {actual_session_id[:8]}..."
+        f"Executing unassign_task_from_user: Task {task_id}..."
     )
-    return update_task(task_id, {"assigned_to": None}, actual_session_id)
+    return update_task(task_id, {"assigned_to": None}, session_id)
 
 
 def get_task_statuses(project_id: int, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
     """Retrieves the list of task statuses for a project."""
-    actual_session_id = get_session_id(session_id)
     logger.info(
-        f"Executing get_task_statuses for project {project_id}, session {actual_session_id[:8]}..."
+        f"Executing get_task_statuses for project {project_id}..."
     )
-    taiga_client_wrapper = get_authenticated_client(actual_session_id)
+    taiga_client_wrapper = resolve_client(session_id)
     return execute_taiga_operation(
         "get_task_statuses",
         lambda: taiga_client_wrapper.api.get("/task-statuses", params={"project": project_id}),
