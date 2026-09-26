@@ -62,3 +62,11 @@ Implemented on branch `feat/per-user-identity` (tests first, 102 unit tests pass
 - All core tool modules call `resolve_client`; the seven `update_*` tools share `execute_taiga_operation`.
 
 Deploy: add `TAIGA_APPLICATION_ID` to the env on rp5, pull, restart `taiga-mcp`, then Ezra links his subject to `ezra-agent` at https://taiga-mcp.hulsman.dev/link-account (every tool refuses until then). Bas, Peter and Emiel link their own accounts the same way once they have Auth0 logins.
+
+## Deployed 2026-09-26
+
+Commit `65cf9e8` runs on rp5 (`taiga-mcp.service`, active). Verified through the claude.ai connector: a stale Bearer-format link was auto-removed on Taiga 401, the unlinked state returned the link URL, Ezra re-linked to `ezra-agent` via `/link-account` (application token minted), and `list_projects` then returned exactly `ezra-agent`'s two projects.
+
+Deploy lesson: on rp5 the fork is the git remote named `fork` and upstream talhaorak is `origin`; production had been running branch `feature/extended-tools`. A plain `git pull` on master fetched upstream v2.0.1 (stdio-only) and the service exited at once (502). rp5's master now tracks `fork/master`, fetched over HTTPS because rp5's GitHub key is passphrase-protected and cannot be used non-interactively.
+
+Open: Auth0 logins for Bas, Peter and Emiel; confirm sign-ups disabled in Auth0; optionally rename the remotes on rp5 to match WSL.
