@@ -1,14 +1,13 @@
 """Structural guard: every core tool module resolves its client through
 src.session.resolve_client, never through the stdio-only helpers."""
 
-import inspect
 from pathlib import Path
 
 import pytest
 
 TOOLS_DIR = Path(__file__).resolve().parent.parent / "src" / "tools"
 CORE_MODULES = sorted(
-    p for p in TOOLS_DIR.glob("*_tools.py") if p.name not in {"auth_tools.py", "oauth_tools.py", "search_tools.py"}  # search_tools is an empty placeholder
+    p for p in TOOLS_DIR.glob("*_tools.py") if p.name not in {"auth_tools.py", "oauth_tools.py"}
 )
 
 
@@ -21,7 +20,7 @@ def test_core_tools_do_not_use_stdio_helpers(module_path):
 
 
 def test_core_module_list_is_not_empty():
-    assert len(CORE_MODULES) >= 9
+    assert len(CORE_MODULES) >= 10
 
 
 def test_tools_pass_caller_session_id_when_delegating():

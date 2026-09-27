@@ -158,10 +158,29 @@ def get_user_story_statuses(
     )
 
 
+def get_user_story_by_ref(
+    project_id: int, ref: int, session_id: Optional[str] = None, verbosity: str = "standard"
+) -> Dict[str, Any]:
+    """Retrieves user story details by its #ref number within a project."""
+    logger.info(f"Executing get_user_story_by_ref ref #{ref} in project {project_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
+    # Raw endpoint on purpose: pytaigaclient's get_by_ref helpers are unreliable (Tasks
+    # sends the query as a body), and one code path for all four types is easier to test.
+    result = execute_taiga_operation(
+        "get_user_story_by_ref",
+        lambda: taiga_client_wrapper.api.get(
+            "/userstories/by_ref", params={"ref": ref, "project": project_id}
+        ),
+        f"user story #{ref} in project {project_id}",
+    )
+    return filter_response(result, "user_story", verbosity)
+
+
 def register(mcp):
     mcp.tool("list_user_stories", description="Lists user stories for a project. Filters: status (ID), milestone (ID), assigned_to (user ID), epic (ID), tags (comma-separated), status__is_closed (bool). Use get_user_story_statuses for valid status IDs. verbosity: 'minimal', 'standard' (default), 'full'.")(list_user_stories)
     mcp.tool("create_user_story", description="Creates a new user story within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_user_story)
     mcp.tool("get_user_story", description="Gets detailed information about a specific user story by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_user_story)
+    mcp.tool("get_user_story_by_ref", description="Gets detailed information about a user story by its #ref number, the number shown in the Taiga UI and in search results (not the internal id; use get_user_story for that). Requires project_id. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_user_story_by_ref)
     mcp.tool("update_user_story", description="Updates details of an existing user story. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_user_story)
     mcp.tool("delete_user_story", description="Deletes a user story by its ID. Uses default session if session_id not provided.")(delete_user_story)
     mcp.tool("assign_user_story_to_user", description="Assigns a specific user story to a specific user. Uses default session if session_id not provided.")(assign_user_story_to_user)

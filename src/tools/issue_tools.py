@@ -101,10 +101,29 @@ def get_issue_types(project_id: int, session_id: Optional[str] = None) -> List[D
     return execute_taiga_operation("get_issue_types", lambda: taiga_client_wrapper.api.issue_types.list(query_params={"project": project_id}), f"project {project_id}")
 
 
+def get_issue_by_ref(
+    project_id: int, ref: int, session_id: Optional[str] = None, verbosity: str = "standard"
+) -> Dict[str, Any]:
+    """Retrieves issue details by its #ref number within a project."""
+    logger.info(f"Executing get_issue_by_ref ref #{ref} in project {project_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
+    # Raw endpoint on purpose: pytaigaclient's get_by_ref helpers are unreliable (Tasks
+    # sends the query as a body), and one code path for all four types is easier to test.
+    result = execute_taiga_operation(
+        "get_issue_by_ref",
+        lambda: taiga_client_wrapper.api.get(
+            "/issues/by_ref", params={"ref": ref, "project": project_id}
+        ),
+        f"issue #{ref} in project {project_id}",
+    )
+    return filter_response(result, "issue", verbosity)
+
+
 def register(mcp):
     mcp.tool("list_issues", description="Lists issues for a project. Filters: status (ID), severity (ID), priority (ID), type (ID), assigned_to (user ID), tags (comma-separated), status__is_closed (bool). Use get_issue_statuses/priorities/severities/types for valid IDs. verbosity: 'minimal', 'standard' (default), 'full'.")(list_issues)
     mcp.tool("create_issue", description="Creates a new issue within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_issue)
     mcp.tool("get_issue", description="Gets detailed information about a specific issue by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_issue)
+    mcp.tool("get_issue_by_ref", description="Gets detailed information about a issue by its #ref number, the number shown in the Taiga UI and in search results (not the internal id; use get_issue for that). Requires project_id. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_issue_by_ref)
     mcp.tool("update_issue", description="Updates details of an existing issue. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_issue)
     mcp.tool("delete_issue", description="Deletes an issue by its ID. Uses default session if session_id not provided.")(delete_issue)
     mcp.tool("assign_issue_to_user", description="Assigns a specific issue to a specific user. Uses default session if session_id not provided.")(assign_issue_to_user)

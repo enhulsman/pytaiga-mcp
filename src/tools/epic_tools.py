@@ -101,10 +101,29 @@ def unlink_story_from_epic(epic_id: int, user_story_id: int, session_id: Optiona
     return execute_taiga_operation("unlink_story_from_epic", do_unlink, f"epic {epic_id} -/- story {user_story_id}")
 
 
+def get_epic_by_ref(
+    project_id: int, ref: int, session_id: Optional[str] = None, verbosity: str = "standard"
+) -> Dict[str, Any]:
+    """Retrieves epic details by its #ref number within a project."""
+    logger.info(f"Executing get_epic_by_ref ref #{ref} in project {project_id}...")
+    taiga_client_wrapper = resolve_client(session_id)
+    # Raw endpoint on purpose: pytaigaclient's get_by_ref helpers are unreliable (Tasks
+    # sends the query as a body), and one code path for all four types is easier to test.
+    result = execute_taiga_operation(
+        "get_epic_by_ref",
+        lambda: taiga_client_wrapper.api.get(
+            "/epics/by_ref", params={"ref": ref, "project": project_id}
+        ),
+        f"epic #{ref} in project {project_id}",
+    )
+    return filter_response(result, "epic", verbosity)
+
+
 def register(mcp):
     mcp.tool("list_epics", description="Lists epics for a project. Filters: status (ID), assigned_to (user ID), tags (comma-separated). Note: no get_epic_statuses tool exists yet; status IDs can be found in the project detail. verbosity: 'minimal', 'standard' (default), 'full'.")(list_epics)
     mcp.tool("create_epic", description="Creates a new epic within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_epic)
     mcp.tool("get_epic", description="Gets detailed information about a specific epic by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_epic)
+    mcp.tool("get_epic_by_ref", description="Gets detailed information about a epic by its #ref number, the number shown in the Taiga UI and in search results (not the internal id; use get_epic for that). Requires project_id. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_epic_by_ref)
     mcp.tool("update_epic", description="Updates details of an existing epic. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_epic)
     mcp.tool("delete_epic", description="Deletes an epic by its ID. Uses default session if session_id not provided.")(delete_epic)
     mcp.tool("assign_epic_to_user", description="Assigns a specific epic to a specific user. Uses default session if session_id not provided.")(assign_epic_to_user)
