@@ -70,3 +70,9 @@ Commit `65cf9e8` runs on rp5 (`taiga-mcp.service`, active). Verified through the
 Deploy lesson: on rp5 the fork is the git remote named `fork` and upstream talhaorak is `origin`; production had been running branch `feature/extended-tools`. A plain `git pull` on master fetched upstream v2.0.1 (stdio-only) and the service exited at once (502). rp5's master now tracks `fork/master`, fetched over HTTPS because rp5's GitHub key is passphrase-protected and cannot be used non-interactively.
 
 Open: Auth0 logins for Bas, Peter and Emiel; confirm sign-ups disabled in Auth0; optionally rename the remotes on rp5 to match WSL.
+
+## Follow-ups (2026-09-27)
+
+- Auth0 logins for Bas, Peter and Emiel were created on 2026-09-27; each still has to link once at `/link-account`.
+- `search` and `get_{user_story,task,issue,epic}_by_ref` shipped in `37c8137` with opt-in live checks (`TAIGA_LIVE=1`, `tests/test_live_search.py`).
+- pyTaigaClient bug, deliberately not fixed here: the `Tasks` resource (`list`, `get_by_ref`) passes `query_params=` to `TaigaClient.get`, which only accepts `params=`, so every call raises `TypeError` before a request is sent. The story/issue/epic helpers work but disagree on the slug parameter name (`project_slug` vs `project__slug`). Our tools call the raw endpoints instead. Fixing it means a pull request against talhaorak/pyTaigaClient (dormant since 2026-03) or a fork; Ezra declined both on 2026-09-27. Keep the raw-endpoint pattern until that changes.
