@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from src.response_filter import filter_response
 from src.session import execute_taiga_operation, resolve_client
+from src.tools._annotations import ADDITIVE, READ_ONLY
 
 logger = logging.getLogger(__name__)
 
@@ -67,5 +68,5 @@ def add_comment(object_type: str, object_id: int, comment: str, session_id: Opti
 
 
 def register(mcp):
-    mcp.tool("list_history", description="Lists history entries (including comments) for an object. object_type must be one of: userstory, task, issue, epic, wiki. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(list_history)
-    mcp.tool("add_comment", description="Adds a comment to an object. object_type must be one of: userstory, task, issue, epic, wiki. Uses default session if session_id not provided.")(add_comment)
+    mcp.tool("list_history", annotations=READ_ONLY, description="Lists history entries (including comments) for an object. object_type must be one of: userstory, task, issue, epic, wiki. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(list_history)
+    mcp.tool("add_comment", annotations=ADDITIVE, description="Adds a comment to an object. object_type must be one of: userstory, task, issue, epic, wiki. Uses default session if session_id not provided.")(add_comment)

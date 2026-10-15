@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from src.response_filter import filter_response, validate_kwargs
 from src.session import execute_taiga_operation, resolve_client
+from src.tools._annotations import ADDITIVE, DESTRUCTIVE, READ_ONLY
 
 logger = logging.getLogger(__name__)
 
@@ -136,29 +137,36 @@ def delete_project(project_id: int, session_id: Optional[str] = None) -> Dict[st
 def register(mcp):
     mcp.tool(
         "list_projects",
+        annotations=READ_ONLY,
         description="Lists projects accessible to the authenticated user. verbosity: 'minimal' (id/name/slug), 'standard' (default), 'full'. Uses default session if session_id not provided.",
     )(list_projects)
     mcp.tool(
         "list_all_projects",
+        annotations=READ_ONLY,
         description="Lists all projects visible to the user (requires admin privileges for full list). verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
     )(list_all_projects)
     mcp.tool(
         "get_project",
+        annotations=READ_ONLY,
         description="Gets detailed information about a specific project by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
     )(get_project)
     mcp.tool(
         "get_project_by_slug",
+        annotations=READ_ONLY,
         description="Gets detailed information about a specific project by its slug. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
     )(get_project_by_slug)
     mcp.tool(
         "create_project",
+        annotations=ADDITIVE,
         description="Creates a new project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
     )(create_project)
     mcp.tool(
         "update_project",
+        annotations=DESTRUCTIVE,
         description="Updates details of an existing project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
     )(update_project)
     mcp.tool(
         "delete_project",
+        annotations=DESTRUCTIVE,
         description="Deletes a project by its ID. This is irreversible. Uses default session if session_id not provided.",
     )(delete_project)

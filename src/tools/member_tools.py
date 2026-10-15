@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from src.response_filter import filter_response
 from src.session import execute_taiga_operation, resolve_client
+from src.tools._annotations import ADDITIVE, READ_ONLY
 
 logger = logging.getLogger(__name__)
 
@@ -31,5 +32,5 @@ def invite_project_user(project_id: int, email: str, role_id: int, session_id: O
 
 
 def register(mcp):
-    mcp.tool("get_project_members", description="Lists members of a specific project. verbosity: 'minimal' (id/user/full_name), 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_project_members)
-    mcp.tool("invite_project_user", description="Invites a user to a project by email with a specific role. Uses default session if session_id not provided.")(invite_project_user)
+    mcp.tool("get_project_members", annotations=READ_ONLY, description="Lists members of a specific project. verbosity: 'minimal' (id/user/full_name), 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_project_members)
+    mcp.tool("invite_project_user", annotations=ADDITIVE, description="Invites a user to a project by email with a specific role. Uses default session if session_id not provided.")(invite_project_user)

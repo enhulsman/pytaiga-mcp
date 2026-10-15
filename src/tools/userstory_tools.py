@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from src.response_filter import filter_response, validate_kwargs
 from src.session import execute_taiga_operation, resolve_client
+from src.tools._annotations import ADDITIVE, DESTRUCTIVE, READ_ONLY
 
 logger = logging.getLogger(__name__)
 
@@ -177,12 +178,12 @@ def get_user_story_by_ref(
 
 
 def register(mcp):
-    mcp.tool("list_user_stories", description="Lists user stories for a project. Filters: status (ID), milestone (ID), assigned_to (user ID), epic (ID), tags (comma-separated), status__is_closed (bool). Use get_user_story_statuses for valid status IDs. verbosity: 'minimal', 'standard' (default), 'full'.")(list_user_stories)
-    mcp.tool("create_user_story", description="Creates a new user story within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_user_story)
-    mcp.tool("get_user_story", description="Gets detailed information about a specific user story by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_user_story)
-    mcp.tool("get_user_story_by_ref", description="Gets detailed information about a user story by its #ref number, the number shown in the Taiga UI and in search results (not the internal id; use get_user_story for that). Requires project_id. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_user_story_by_ref)
-    mcp.tool("update_user_story", description="Updates details of an existing user story. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_user_story)
-    mcp.tool("delete_user_story", description="Deletes a user story by its ID. Uses default session if session_id not provided.")(delete_user_story)
-    mcp.tool("assign_user_story_to_user", description="Assigns a specific user story to a specific user. Uses default session if session_id not provided.")(assign_user_story_to_user)
-    mcp.tool("unassign_user_story_from_user", description="Unassigns a specific user story (sets assigned user to null). Uses default session if session_id not provided.")(unassign_user_story_from_user)
-    mcp.tool("get_user_story_statuses", description="Lists available user story statuses for a project. Use returned IDs with list_user_stories filters: {\"status\": <id>}.")(get_user_story_statuses)
+    mcp.tool("list_user_stories", annotations=READ_ONLY, description="Lists user stories for a project. Filters: status (ID), milestone (ID), assigned_to (user ID), epic (ID), tags (comma-separated), status__is_closed (bool). Use get_user_story_statuses for valid status IDs. verbosity: 'minimal', 'standard' (default), 'full'.")(list_user_stories)
+    mcp.tool("create_user_story", annotations=ADDITIVE, description="Creates a new user story within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_user_story)
+    mcp.tool("get_user_story", annotations=READ_ONLY, description="Gets detailed information about a specific user story by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_user_story)
+    mcp.tool("get_user_story_by_ref", annotations=READ_ONLY, description="Gets detailed information about a user story by its #ref number, the number shown in the Taiga UI and in search results (not the internal id; use get_user_story for that). Requires project_id. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_user_story_by_ref)
+    mcp.tool("update_user_story", annotations=DESTRUCTIVE, description="Updates details of an existing user story. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_user_story)
+    mcp.tool("delete_user_story", annotations=DESTRUCTIVE, description="Deletes a user story by its ID. Uses default session if session_id not provided.")(delete_user_story)
+    mcp.tool("assign_user_story_to_user", annotations=DESTRUCTIVE, description="Assigns a specific user story to a specific user. Uses default session if session_id not provided.")(assign_user_story_to_user)
+    mcp.tool("unassign_user_story_from_user", annotations=DESTRUCTIVE, description="Unassigns a specific user story (sets assigned user to null). Uses default session if session_id not provided.")(unassign_user_story_from_user)
+    mcp.tool("get_user_story_statuses", annotations=READ_ONLY, description="Lists available user story statuses for a project. Use returned IDs with list_user_stories filters: {\"status\": <id>}.")(get_user_story_statuses)

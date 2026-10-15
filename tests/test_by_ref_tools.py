@@ -91,7 +91,7 @@ def test_by_ref_is_registered_with_ref_guidance(module, tool_name, endpoint, res
     mcp = MagicMock()
     registered = {}
 
-    def tool(name, description=None):
+    def tool(name, description=None, **_):
         registered[name] = description
         return lambda fn: fn
 

@@ -13,6 +13,7 @@ from src.session import (
     get_session_id,
 )
 from src.taiga_client import TaigaClientWrapper
+from src.tools._annotations import ADDITIVE, DESTRUCTIVE, READ_ONLY
 
 logger = logging.getLogger(__name__)
 
@@ -142,17 +143,21 @@ def session_status(session_id: Optional[str] = None) -> Dict[str, Any]:
 def register(mcp):
     mcp.tool(
         "get_default_session",
+        annotations=READ_ONLY,
         description="Returns the default session ID if auto-authentication from environment variables was successful.",
     )(get_default_session)
     mcp.tool(
         "login",
+        annotations=ADDITIVE,
         description="Logs into a Taiga instance. Uses environment variables as defaults if parameters not provided.",
     )(login)
     mcp.tool(
         "logout",
+        annotations=DESTRUCTIVE,
         description="Invalidates the current session_id. Uses default session if session_id not provided.",
     )(logout)
     mcp.tool(
         "session_status",
+        annotations=READ_ONLY,
         description="Checks if the provided session_id is currently active and valid. Uses default session if session_id not provided.",
     )(session_status)

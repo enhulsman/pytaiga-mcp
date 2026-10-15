@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from src.response_filter import filter_response, validate_kwargs
 from src.session import execute_taiga_operation, resolve_client
+from src.tools._annotations import ADDITIVE, DESTRUCTIVE, READ_ONLY
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +66,8 @@ def delete_wiki_page(wiki_page_id: int, session_id: Optional[str] = None) -> Dic
 
 
 def register(mcp):
-    mcp.tool("list_wiki_pages", description="Lists wiki pages within a specific project. verbosity: 'minimal' (id/slug/project), 'standard' (default), 'full'. Uses default session if session_id not provided.")(list_wiki_pages)
-    mcp.tool("get_wiki_page", description="Gets a specific wiki page by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_wiki_page)
-    mcp.tool("create_wiki_page", description="Creates a new wiki page within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_wiki_page)
-    mcp.tool("update_wiki_page", description="Updates an existing wiki page. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_wiki_page)
-    mcp.tool("delete_wiki_page", description="Deletes a wiki page by its ID. Uses default session if session_id not provided.")(delete_wiki_page)
+    mcp.tool("list_wiki_pages", annotations=READ_ONLY, description="Lists wiki pages within a specific project. verbosity: 'minimal' (id/slug/project), 'standard' (default), 'full'. Uses default session if session_id not provided.")(list_wiki_pages)
+    mcp.tool("get_wiki_page", annotations=READ_ONLY, description="Gets a specific wiki page by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_wiki_page)
+    mcp.tool("create_wiki_page", annotations=ADDITIVE, description="Creates a new wiki page within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_wiki_page)
+    mcp.tool("update_wiki_page", annotations=DESTRUCTIVE, description="Updates an existing wiki page. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_wiki_page)
+    mcp.tool("delete_wiki_page", annotations=DESTRUCTIVE, description="Deletes a wiki page by its ID. Uses default session if session_id not provided.")(delete_wiki_page)

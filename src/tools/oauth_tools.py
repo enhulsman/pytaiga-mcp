@@ -8,6 +8,7 @@ import logging
 from typing import Any, Dict
 
 from src.session import current_oauth_sub, get_oauth_bridge, link_url
+from src.tools._annotations import DESTRUCTIVE, READ_ONLY
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +50,11 @@ def register(mcp):
     """Register OAuth-mode tools."""
     mcp.tool(
         "taiga_link_status",
+        annotations=READ_ONLY,
         description="Check if your Taiga account is linked to your OAuth identity. Returns a linking URL if not linked.",
     )(taiga_link_status)
     mcp.tool(
         "taiga_unlink_account",
+        annotations=DESTRUCTIVE,
         description="Unlink your Taiga account from your OAuth identity. You will need to re-link to use Taiga tools.",
     )(taiga_unlink_account)

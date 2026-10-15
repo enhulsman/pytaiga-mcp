@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from src.response_filter import filter_response, validate_kwargs
 from src.session import execute_taiga_operation, resolve_client
+from src.tools._annotations import ADDITIVE, DESTRUCTIVE, READ_ONLY
 
 logger = logging.getLogger(__name__)
 
@@ -120,15 +121,15 @@ def get_issue_by_ref(
 
 
 def register(mcp):
-    mcp.tool("list_issues", description="Lists issues for a project. Filters: status (ID), severity (ID), priority (ID), type (ID), assigned_to (user ID), tags (comma-separated), status__is_closed (bool). Use get_issue_statuses/priorities/severities/types for valid IDs. verbosity: 'minimal', 'standard' (default), 'full'.")(list_issues)
-    mcp.tool("create_issue", description="Creates a new issue within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_issue)
-    mcp.tool("get_issue", description="Gets detailed information about a specific issue by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_issue)
-    mcp.tool("get_issue_by_ref", description="Gets detailed information about a issue by its #ref number, the number shown in the Taiga UI and in search results (not the internal id; use get_issue for that). Requires project_id. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_issue_by_ref)
-    mcp.tool("update_issue", description="Updates details of an existing issue. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_issue)
-    mcp.tool("delete_issue", description="Deletes an issue by its ID. Uses default session if session_id not provided.")(delete_issue)
-    mcp.tool("assign_issue_to_user", description="Assigns a specific issue to a specific user. Uses default session if session_id not provided.")(assign_issue_to_user)
-    mcp.tool("unassign_issue_from_user", description="Unassigns a specific issue (sets assigned user to null). Uses default session if session_id not provided.")(unassign_issue_from_user)
-    mcp.tool("get_issue_statuses", description="Lists available issue statuses for a project. Use returned IDs with list_issues filters: {\"status\": <id>}.")(get_issue_statuses)
-    mcp.tool("get_issue_priorities", description="Lists available issue priorities for a project. Use returned IDs with list_issues filters: {\"priority\": <id>}.")(get_issue_priorities)
-    mcp.tool("get_issue_severities", description="Lists available issue severities for a project. Use returned IDs with list_issues filters: {\"severity\": <id>}.")(get_issue_severities)
-    mcp.tool("get_issue_types", description="Lists available issue types for a project. Use returned IDs with list_issues filters: {\"type\": <id>}.")(get_issue_types)
+    mcp.tool("list_issues", annotations=READ_ONLY, description="Lists issues for a project. Filters: status (ID), severity (ID), priority (ID), type (ID), assigned_to (user ID), tags (comma-separated), status__is_closed (bool). Use get_issue_statuses/priorities/severities/types for valid IDs. verbosity: 'minimal', 'standard' (default), 'full'.")(list_issues)
+    mcp.tool("create_issue", annotations=ADDITIVE, description="Creates a new issue within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_issue)
+    mcp.tool("get_issue", annotations=READ_ONLY, description="Gets detailed information about a specific issue by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_issue)
+    mcp.tool("get_issue_by_ref", annotations=READ_ONLY, description="Gets detailed information about a issue by its #ref number, the number shown in the Taiga UI and in search results (not the internal id; use get_issue for that). Requires project_id. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_issue_by_ref)
+    mcp.tool("update_issue", annotations=DESTRUCTIVE, description="Updates details of an existing issue. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_issue)
+    mcp.tool("delete_issue", annotations=DESTRUCTIVE, description="Deletes an issue by its ID. Uses default session if session_id not provided.")(delete_issue)
+    mcp.tool("assign_issue_to_user", annotations=DESTRUCTIVE, description="Assigns a specific issue to a specific user. Uses default session if session_id not provided.")(assign_issue_to_user)
+    mcp.tool("unassign_issue_from_user", annotations=DESTRUCTIVE, description="Unassigns a specific issue (sets assigned user to null). Uses default session if session_id not provided.")(unassign_issue_from_user)
+    mcp.tool("get_issue_statuses", annotations=READ_ONLY, description="Lists available issue statuses for a project. Use returned IDs with list_issues filters: {\"status\": <id>}.")(get_issue_statuses)
+    mcp.tool("get_issue_priorities", annotations=READ_ONLY, description="Lists available issue priorities for a project. Use returned IDs with list_issues filters: {\"priority\": <id>}.")(get_issue_priorities)
+    mcp.tool("get_issue_severities", annotations=READ_ONLY, description="Lists available issue severities for a project. Use returned IDs with list_issues filters: {\"severity\": <id>}.")(get_issue_severities)
+    mcp.tool("get_issue_types", annotations=READ_ONLY, description="Lists available issue types for a project. Use returned IDs with list_issues filters: {\"type\": <id>}.")(get_issue_types)

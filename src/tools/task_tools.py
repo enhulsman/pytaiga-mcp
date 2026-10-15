@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from src.response_filter import filter_response, validate_kwargs
 from src.session import execute_taiga_operation, resolve_client
+from src.tools._annotations import ADDITIVE, DESTRUCTIVE, READ_ONLY
 
 logger = logging.getLogger(__name__)
 
@@ -159,12 +160,12 @@ def get_task_by_ref(
 
 
 def register(mcp):
-    mcp.tool("list_tasks", description="Lists tasks for a project. Filters: status (ID), user_story (ID), milestone (ID), assigned_to (user ID), tags (comma-separated), status__is_closed (bool). Use get_task_statuses for valid status IDs. verbosity: 'minimal', 'standard' (default), 'full'.")(list_tasks)
-    mcp.tool("create_task", description="Creates a new task within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_task)
-    mcp.tool("get_task", description="Gets detailed information about a specific task by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_task)
-    mcp.tool("get_task_by_ref", description="Gets detailed information about a task by its #ref number, the number shown in the Taiga UI and in search results (not the internal id; use get_task for that). Requires project_id. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_task_by_ref)
-    mcp.tool("update_task", description="Updates details of an existing task. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_task)
-    mcp.tool("delete_task", description="Deletes a task by its ID. Uses default session if session_id not provided.")(delete_task)
-    mcp.tool("assign_task_to_user", description="Assigns a specific task to a specific user. Uses default session if session_id not provided.")(assign_task_to_user)
-    mcp.tool("unassign_task_from_user", description="Unassigns a specific task (sets assigned user to null). Uses default session if session_id not provided.")(unassign_task_from_user)
-    mcp.tool("get_task_statuses", description="Lists available task statuses for a project. Use returned IDs with list_tasks filters: {\"status\": <id>}.")(get_task_statuses)
+    mcp.tool("list_tasks", annotations=READ_ONLY, description="Lists tasks for a project. Filters: status (ID), user_story (ID), milestone (ID), assigned_to (user ID), tags (comma-separated), status__is_closed (bool). Use get_task_statuses for valid status IDs. verbosity: 'minimal', 'standard' (default), 'full'.")(list_tasks)
+    mcp.tool("create_task", annotations=ADDITIVE, description="Creates a new task within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_task)
+    mcp.tool("get_task", annotations=READ_ONLY, description="Gets detailed information about a specific task by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_task)
+    mcp.tool("get_task_by_ref", annotations=READ_ONLY, description="Gets detailed information about a task by its #ref number, the number shown in the Taiga UI and in search results (not the internal id; use get_task for that). Requires project_id. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_task_by_ref)
+    mcp.tool("update_task", annotations=DESTRUCTIVE, description="Updates details of an existing task. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_task)
+    mcp.tool("delete_task", annotations=DESTRUCTIVE, description="Deletes a task by its ID. Uses default session if session_id not provided.")(delete_task)
+    mcp.tool("assign_task_to_user", annotations=DESTRUCTIVE, description="Assigns a specific task to a specific user. Uses default session if session_id not provided.")(assign_task_to_user)
+    mcp.tool("unassign_task_from_user", annotations=DESTRUCTIVE, description="Unassigns a specific task (sets assigned user to null). Uses default session if session_id not provided.")(unassign_task_from_user)
+    mcp.tool("get_task_statuses", annotations=READ_ONLY, description="Lists available task statuses for a project. Use returned IDs with list_tasks filters: {\"status\": <id>}.")(get_task_statuses)

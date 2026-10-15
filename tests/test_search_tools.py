@@ -107,7 +107,7 @@ def test_search_strips_surrounding_whitespace(monkeypatch):
 def test_search_is_registered():
     mcp = MagicMock()
     registered = {}
-    mcp.tool.side_effect = lambda name, description=None: lambda fn: registered.setdefault(name, fn)
+    mcp.tool.side_effect = lambda name, description=None, **_: lambda fn: registered.setdefault(name, fn)
 
     search_tools.register(mcp)
 
