@@ -24,9 +24,11 @@ def register_all_tools(mcp):
     """
     if is_oauth_mode():
         from src.tools import oauth_tools
+
         oauth_tools.register(mcp)
     else:
         from src.tools import auth_tools
+
         auth_tools.register(mcp)
 
     # Core tools -- always registered

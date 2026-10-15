@@ -1,11 +1,10 @@
 """Tests for Auth0 JWT token verifier."""
 
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import jwt
 import pytest
-from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from src.auth.token_verifier import Auth0TokenVerifier

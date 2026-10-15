@@ -7,8 +7,6 @@ import pytest
 import src.server
 from src.taiga_client import TaigaClientWrapper
 
-from pytaigaclient import TaigaClient
-
 # Test constants
 TEST_HOST = "https://your-test-taiga-instance.com"
 TEST_USERNAME = "test_user"
@@ -162,7 +160,12 @@ class TestResponseFiltering:
     def test_filter_standard_always_includes_version(self):
         """version is required for updates in standard level."""
         # These resource types don't have version (not updateable or special stats/read-only)
-        no_version_resources = {"member", "milestone_stats", "epic_related_user_story", "history_entry"}
+        no_version_resources = {
+            "member",
+            "milestone_stats",
+            "epic_related_user_story",
+            "history_entry",
+        }
         for resource_type, levels in src.server.RESPONSE_FIELDS.items():
             if resource_type not in no_version_resources:
                 assert "version" in levels["standard"], (
@@ -302,12 +305,18 @@ class TestExtendedTools:
         session_id, mock_client = session_setup
         # Real client has no .invite attribute; make the mock as strict.
         del mock_client.api.memberships.invite
-        mock_client.api.memberships.create.return_value = {"id": 42, "email": "new@example.com", "role": 7}
+        mock_client.api.memberships.create.return_value = {
+            "id": 42,
+            "email": "new@example.com",
+            "role": 7,
+        }
 
         result = invite_project_user(123, "new@example.com", 7, session_id)
 
         assert result["id"] == 42
-        mock_client.api.memberships.create.assert_called_once_with(project=123, role=7, username="new@example.com")
+        mock_client.api.memberships.create.assert_called_once_with(
+            project=123, role=7, username="new@example.com"
+        )
 
     def test_invite_project_user_rejects_empty_email(self, session_setup):
         from src.tools.member_tools import invite_project_user

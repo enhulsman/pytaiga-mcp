@@ -39,9 +39,7 @@ def live_client():
     if not (settings.username and settings.password):
         pytest.skip("TAIGA_USERNAME/TAIGA_PASSWORD not configured")
     wrapper = TaigaClientWrapper(settings.host)
-    wrapper.login(
-        settings.username.get_secret_value(), settings.password.get_secret_value()
-    )
+    wrapper.login(settings.username.get_secret_value(), settings.password.get_secret_value())
     return wrapper
 
 

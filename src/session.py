@@ -12,7 +12,7 @@ Tools call resolve_client(); it dispatches on the mode:
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from mcp.server.auth.middleware.auth_context import get_access_token
 from pytaigaclient.exceptions import TaigaAuthenticationError, TaigaException

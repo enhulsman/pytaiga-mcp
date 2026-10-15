@@ -5,34 +5,71 @@ from typing import Any, Dict, List, Optional
 
 from src.response_filter import filter_response, validate_kwargs
 from src.session import execute_taiga_operation, resolve_client
+from src.tools._annotations import ADDITIVE, DESTRUCTIVE, READ_ONLY
 
 logger = logging.getLogger(__name__)
 
 
-def list_milestones(project_id: int, closed: Optional[bool] = None, session_id: Optional[str] = None, verbosity: str = "standard") -> List[Dict[str, Any]]:
+def list_milestones(
+    project_id: int,
+    closed: Optional[bool] = None,
+    session_id: Optional[str] = None,
+    verbosity: str = "standard",
+) -> List[Dict[str, Any]]:
     logger.info(f"Executing list_milestones for project {project_id}...")
     taiga_client_wrapper = resolve_client(session_id)
-    result = execute_taiga_operation("list_milestones", lambda: taiga_client_wrapper.api.milestones.list(project=project_id, closed=closed), f"project {project_id}")
+    result = execute_taiga_operation(
+        "list_milestones",
+        lambda: taiga_client_wrapper.api.milestones.list(project=project_id, closed=closed),
+        f"project {project_id}",
+    )
     return filter_response(result, "milestone", verbosity)
 
 
-def create_milestone(project_id: int, name: str, estimated_start: str, estimated_finish: str, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
+def create_milestone(
+    project_id: int,
+    name: str,
+    estimated_start: str,
+    estimated_finish: str,
+    session_id: Optional[str] = None,
+    verbosity: str = "standard",
+) -> Dict[str, Any]:
     logger.info(f"Executing create_milestone '{name}' in project {project_id}...")
     taiga_client_wrapper = resolve_client(session_id)
     if not all([name, estimated_start, estimated_finish]):
         raise ValueError("Milestone requires name, estimated_start, and estimated_finish.")
-    result = execute_taiga_operation("create_milestone", lambda: taiga_client_wrapper.api.milestones.create(project=project_id, name=name, estimated_start=estimated_start, estimated_finish=estimated_finish), f"milestone '{name}'")
+    result = execute_taiga_operation(
+        "create_milestone",
+        lambda: taiga_client_wrapper.api.milestones.create(
+            project=project_id,
+            name=name,
+            estimated_start=estimated_start,
+            estimated_finish=estimated_finish,
+        ),
+        f"milestone '{name}'",
+    )
     return filter_response(result, "milestone", verbosity)
 
 
-def get_milestone(milestone_id: int, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
+def get_milestone(
+    milestone_id: int, session_id: Optional[str] = None, verbosity: str = "standard"
+) -> Dict[str, Any]:
     logger.info(f"Executing get_milestone ID {milestone_id}...")
     taiga_client_wrapper = resolve_client(session_id)
-    result = execute_taiga_operation("get_milestone", lambda: taiga_client_wrapper.api.milestones.get(milestone_id), f"milestone {milestone_id}")
+    result = execute_taiga_operation(
+        "get_milestone",
+        lambda: taiga_client_wrapper.api.milestones.get(milestone_id),
+        f"milestone {milestone_id}",
+    )
     return filter_response(result, "milestone", verbosity)
 
 
-def update_milestone(milestone_id: int, kwargs: Optional[Dict[str, Any]] = None, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
+def update_milestone(
+    milestone_id: int,
+    kwargs: Optional[Dict[str, Any]] = None,
+    session_id: Optional[str] = None,
+    verbosity: str = "standard",
+) -> Dict[str, Any]:
     parsed_kwargs = validate_kwargs("milestone", kwargs or {})
     logger.info(f"Executing update_milestone ID {milestone_id} with data: {parsed_kwargs}")
     taiga_client_wrapper = resolve_client(session_id)
@@ -45,7 +82,9 @@ def update_milestone(milestone_id: int, kwargs: Optional[Dict[str, Any]] = None,
         version = current_milestone.get("version")
         if not version:
             raise ValueError(f"Could not determine version for milestone {milestone_id}")
-        updated_milestone = taiga_client_wrapper.api.milestones.edit(milestone_id=milestone_id, version=version, **parsed_kwargs)
+        updated_milestone = taiga_client_wrapper.api.milestones.edit(
+            milestone_id=milestone_id, version=version, **parsed_kwargs
+        )
         logger.info(f"Milestone {milestone_id} update request sent.")
         return filter_response(updated_milestone, "milestone", verbosity)
 
@@ -63,17 +102,47 @@ def delete_milestone(milestone_id: int, session_id: Optional[str] = None) -> Dic
     return execute_taiga_operation("delete_milestone", do_delete, f"milestone {milestone_id}")
 
 
-def get_milestone_stats(milestone_id: int, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
+def get_milestone_stats(
+    milestone_id: int, session_id: Optional[str] = None, verbosity: str = "standard"
+) -> Dict[str, Any]:
     logger.info(f"Executing get_milestone_stats for milestone {milestone_id}...")
     taiga_client_wrapper = resolve_client(session_id)
-    result = execute_taiga_operation("get_milestone_stats", lambda: taiga_client_wrapper.api.milestones.stats(milestone_id), f"milestone {milestone_id}")
+    result = execute_taiga_operation(
+        "get_milestone_stats",
+        lambda: taiga_client_wrapper.api.milestones.stats(milestone_id),
+        f"milestone {milestone_id}",
+    )
     return filter_response(result, "milestone_stats", verbosity)
 
 
 def register(mcp):
-    mcp.tool("list_milestones", description="Lists milestones (sprints) for a project. Set closed=false for open sprints only, closed=true for closed only. Returns all by default. verbosity: 'minimal', 'standard' (default), 'full'.")(list_milestones)
-    mcp.tool("create_milestone", description="Creates a new milestone (sprint) within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_milestone)
-    mcp.tool("get_milestone", description="Gets detailed information about a specific milestone by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_milestone)
-    mcp.tool("update_milestone", description="Updates details of an existing milestone. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_milestone)
-    mcp.tool("delete_milestone", description="Deletes a milestone by its ID. Uses default session if session_id not provided.")(delete_milestone)
-    mcp.tool("get_milestone_stats", description="Gets statistics for a specific milestone (sprint). verbosity: 'minimal' (total/completed points), 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_milestone_stats)
+    mcp.tool(
+        "list_milestones",
+        annotations=READ_ONLY,
+        description="Lists milestones (sprints) for a project. Set closed=false for open sprints only, closed=true for closed only. Returns all by default. verbosity: 'minimal', 'standard' (default), 'full'.",
+    )(list_milestones)
+    mcp.tool(
+        "create_milestone",
+        annotations=ADDITIVE,
+        description="Creates a new milestone (sprint) within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
+    )(create_milestone)
+    mcp.tool(
+        "get_milestone",
+        annotations=READ_ONLY,
+        description="Gets detailed information about a specific milestone by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
+    )(get_milestone)
+    mcp.tool(
+        "update_milestone",
+        annotations=DESTRUCTIVE,
+        description="Updates details of an existing milestone. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
+    )(update_milestone)
+    mcp.tool(
+        "delete_milestone",
+        annotations=DESTRUCTIVE,
+        description="Deletes a milestone by its ID. Uses default session if session_id not provided.",
+    )(delete_milestone)
+    mcp.tool(
+        "get_milestone_stats",
+        annotations=READ_ONLY,
+        description="Gets statistics for a specific milestone (sprint). verbosity: 'minimal' (total/completed points), 'standard' (default), 'full'. Uses default session if session_id not provided.",
+    )(get_milestone_stats)

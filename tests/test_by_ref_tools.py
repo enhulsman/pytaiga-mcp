@@ -17,7 +17,9 @@ CASES = [
 ]
 
 
-@pytest.mark.parametrize("module, tool_name, endpoint, resource_type", CASES, ids=[c[1] for c in CASES])
+@pytest.mark.parametrize(
+    "module, tool_name, endpoint, resource_type", CASES, ids=[c[1] for c in CASES]
+)
 def test_by_ref_calls_raw_endpoint_with_ref_and_project(
     monkeypatch, module, tool_name, endpoint, resource_type
 ):
@@ -30,7 +32,9 @@ def test_by_ref_calls_raw_endpoint_with_ref_and_project(
     client.api.get.assert_called_once_with(endpoint, params={"ref": 12, "project": 5})
 
 
-@pytest.mark.parametrize("module, tool_name, endpoint, resource_type", CASES, ids=[c[1] for c in CASES])
+@pytest.mark.parametrize(
+    "module, tool_name, endpoint, resource_type", CASES, ids=[c[1] for c in CASES]
+)
 def test_by_ref_passes_session_id_to_resolve_client(
     monkeypatch, module, tool_name, endpoint, resource_type
 ):
@@ -47,7 +51,9 @@ def test_by_ref_passes_session_id_to_resolve_client(
     assert seen == ["sess-9"]
 
 
-@pytest.mark.parametrize("module, tool_name, endpoint, resource_type", CASES, ids=[c[1] for c in CASES])
+@pytest.mark.parametrize(
+    "module, tool_name, endpoint, resource_type", CASES, ids=[c[1] for c in CASES]
+)
 def test_by_ref_filters_response_with_given_verbosity(
     monkeypatch, module, tool_name, endpoint, resource_type
 ):
@@ -69,7 +75,9 @@ def test_by_ref_filters_response_with_given_verbosity(
     assert calls == [(raw, resource_type, "minimal")]
 
 
-@pytest.mark.parametrize("module, tool_name, endpoint, resource_type", CASES, ids=[c[1] for c in CASES])
+@pytest.mark.parametrize(
+    "module, tool_name, endpoint, resource_type", CASES, ids=[c[1] for c in CASES]
+)
 def test_by_ref_defaults_to_standard_verbosity(
     monkeypatch, module, tool_name, endpoint, resource_type
 ):
@@ -77,21 +85,21 @@ def test_by_ref_defaults_to_standard_verbosity(
     client.api.get.return_value = {"id": 99, "ref": 12, "subject": "x"}
     monkeypatch.setattr(module, "resolve_client", lambda session_id=None: client)
     calls = []
-    monkeypatch.setattr(
-        module, "filter_response", lambda r, t, v="standard": calls.append(v) or r
-    )
+    monkeypatch.setattr(module, "filter_response", lambda r, t, v="standard": calls.append(v) or r)
 
     getattr(module, tool_name)(project_id=5, ref=12)
 
     assert calls == ["standard"]
 
 
-@pytest.mark.parametrize("module, tool_name, endpoint, resource_type", CASES, ids=[c[1] for c in CASES])
+@pytest.mark.parametrize(
+    "module, tool_name, endpoint, resource_type", CASES, ids=[c[1] for c in CASES]
+)
 def test_by_ref_is_registered_with_ref_guidance(module, tool_name, endpoint, resource_type):
     mcp = MagicMock()
     registered = {}
 
-    def tool(name, description=None):
+    def tool(name, description=None, **_):
         registered[name] = description
         return lambda fn: fn
 

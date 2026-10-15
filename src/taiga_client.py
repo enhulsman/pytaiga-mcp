@@ -1,11 +1,12 @@
 # taiga_client.py
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 from pytaigaclient import TaigaClient
 from pytaigaclient.exceptions import TaigaException
 
 logger = logging.getLogger(__name__)
+
 
 class TaigaClientWrapper:
     """
@@ -52,7 +53,9 @@ class TaigaClientWrapper:
     def set_token(self, token: str, token_type: str = "Bearer"):
         """Initialize TaigaClient with a pre-existing auth token (for OAuth mode)."""
         logger.info(f"Initializing TaigaClient with token on {self.host}")
-        self.api = TaigaClient(host=self.host, auth_token=token, token_type=token_type, disable_pagination=True)
+        self.api = TaigaClient(
+            host=self.host, auth_token=token, token_type=token_type, disable_pagination=True
+        )
         logger.info("TaigaClient initialized with token.")
 
     @property
@@ -66,4 +69,3 @@ class TaigaClientWrapper:
         if not self.is_authenticated:
             logger.error("Action required authentication, but client is not logged in.")
             raise PermissionError("Client not authenticated. Please login first.")
-

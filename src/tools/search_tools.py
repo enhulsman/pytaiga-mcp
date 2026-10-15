@@ -4,6 +4,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from src.session import execute_taiga_operation, resolve_client
+from src.tools._annotations import READ_ONLY
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +22,7 @@ def _trim_hit(hit: Dict[str, Any]) -> Dict[str, Any]:
     return trimmed
 
 
-def search(
-    project_id: int, text: str, session_id: Optional[str] = None
-) -> Dict[str, Any]:
+def search(project_id: int, text: str, session_id: Optional[str] = None) -> Dict[str, Any]:
     """Searches user stories, tasks, issues, epics and wiki pages of a project by text."""
     query = (text or "").strip()
     if not query:
@@ -49,6 +48,7 @@ def search(
 def register(mcp):
     mcp.tool(
         "search",
+        annotations=READ_ONLY,
         description=(
             "Full-text search across a project's user stories, tasks, issues, epics and wiki "
             "pages. Returns hits grouped per type with id, ref (the #N number shown in Taiga) "
