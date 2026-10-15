@@ -29,7 +29,9 @@ class TaigaCredentialStore:
 
     def __init__(self, db_path: str, encryption_key: str):
         self.db_path = Path(db_path).expanduser()
-        self.fernet = Fernet(encryption_key.encode() if isinstance(encryption_key, str) else encryption_key)
+        self.fernet = Fernet(
+            encryption_key.encode() if isinstance(encryption_key, str) else encryption_key
+        )
         self._init_db()
 
     def _init_db(self):
@@ -83,7 +85,9 @@ class TaigaCredentialStore:
         finally:
             db.close()
 
-    def store_taiga_token(self, oauth_sub: str, taiga_auth_token: str, app_token_id: Optional[int] = None):
+    def store_taiga_token(
+        self, oauth_sub: str, taiga_auth_token: str, app_token_id: Optional[int] = None
+    ):
         """Encrypt and store a Taiga token, with the Taiga-side application-token id if known."""
         encrypted = self.fernet.encrypt(taiga_auth_token.encode())
         db = sqlite3.connect(str(self.db_path))

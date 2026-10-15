@@ -10,34 +10,74 @@ from src.tools._annotations import ADDITIVE, DESTRUCTIVE, READ_ONLY
 logger = logging.getLogger(__name__)
 
 
-def list_issues(project_id: int, filters: Optional[Dict[str, Any]] = None, session_id: Optional[str] = None, verbosity: str = "standard") -> List[Dict[str, Any]]:
+def list_issues(
+    project_id: int,
+    filters: Optional[Dict[str, Any]] = None,
+    session_id: Optional[str] = None,
+    verbosity: str = "standard",
+) -> List[Dict[str, Any]]:
     parsed_filters = filters or {}
     logger.info(f"Executing list_issues for project {project_id}, filters: {parsed_filters}")
     taiga_client_wrapper = resolve_client(session_id)
     query = {"project": project_id, **parsed_filters}
-    result = execute_taiga_operation("list_issues", lambda: taiga_client_wrapper.api.issues.list(query_params=query), f"project {project_id}")
+    result = execute_taiga_operation(
+        "list_issues",
+        lambda: taiga_client_wrapper.api.issues.list(query_params=query),
+        f"project {project_id}",
+    )
     return filter_response(result, "issue", verbosity)
 
 
-def create_issue(project_id: int, subject: str, priority_id: int, status_id: int, severity_id: int, type_id: int, kwargs: Optional[Dict[str, Any]] = None, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
+def create_issue(
+    project_id: int,
+    subject: str,
+    priority_id: int,
+    status_id: int,
+    severity_id: int,
+    type_id: int,
+    kwargs: Optional[Dict[str, Any]] = None,
+    session_id: Optional[str] = None,
+    verbosity: str = "standard",
+) -> Dict[str, Any]:
     parsed_kwargs = validate_kwargs("issue", kwargs or {})
     logger.info(f"Executing create_issue '{subject}' in project {project_id}...")
     taiga_client_wrapper = resolve_client(session_id)
     if not subject:
         raise ValueError("Issue subject cannot be empty.")
-    issue_data = {"priority": priority_id, "status": status_id, "type": type_id, "severity": severity_id, **parsed_kwargs}
-    result = execute_taiga_operation("create_issue", lambda: taiga_client_wrapper.api.issues.create(project=project_id, subject=subject, data=issue_data), f"issue '{subject}'")
+    issue_data = {
+        "priority": priority_id,
+        "status": status_id,
+        "type": type_id,
+        "severity": severity_id,
+        **parsed_kwargs,
+    }
+    result = execute_taiga_operation(
+        "create_issue",
+        lambda: taiga_client_wrapper.api.issues.create(
+            project=project_id, subject=subject, data=issue_data
+        ),
+        f"issue '{subject}'",
+    )
     return filter_response(result, "issue", verbosity)
 
 
-def get_issue(issue_id: int, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
+def get_issue(
+    issue_id: int, session_id: Optional[str] = None, verbosity: str = "standard"
+) -> Dict[str, Any]:
     logger.info(f"Executing get_issue ID {issue_id}...")
     taiga_client_wrapper = resolve_client(session_id)
-    result = execute_taiga_operation("get_issue", lambda: taiga_client_wrapper.api.issues.get(issue_id), f"issue {issue_id}")
+    result = execute_taiga_operation(
+        "get_issue", lambda: taiga_client_wrapper.api.issues.get(issue_id), f"issue {issue_id}"
+    )
     return filter_response(result, "issue", verbosity)
 
 
-def update_issue(issue_id: int, kwargs: Optional[Dict[str, Any]] = None, session_id: Optional[str] = None, verbosity: str = "standard") -> Dict[str, Any]:
+def update_issue(
+    issue_id: int,
+    kwargs: Optional[Dict[str, Any]] = None,
+    session_id: Optional[str] = None,
+    verbosity: str = "standard",
+) -> Dict[str, Any]:
     parsed_kwargs = validate_kwargs("issue", kwargs or {})
     logger.info(f"Executing update_issue ID {issue_id} with data: {parsed_kwargs}")
     taiga_client_wrapper = resolve_client(session_id)
@@ -50,7 +90,9 @@ def update_issue(issue_id: int, kwargs: Optional[Dict[str, Any]] = None, session
         version = current_issue.get("version")
         if not version:
             raise ValueError(f"Could not determine version for issue {issue_id}")
-        updated_issue = taiga_client_wrapper.api.issues.edit(issue_id=issue_id, version=version, data=parsed_kwargs)
+        updated_issue = taiga_client_wrapper.api.issues.edit(
+            issue_id=issue_id, version=version, data=parsed_kwargs
+        )
         logger.info(f"Issue {issue_id} update request sent.")
         return filter_response(updated_issue, "issue", verbosity)
 
@@ -68,7 +110,9 @@ def delete_issue(issue_id: int, session_id: Optional[str] = None) -> Dict[str, A
     return execute_taiga_operation("delete_issue", do_delete, f"issue {issue_id}")
 
 
-def assign_issue_to_user(issue_id: int, user_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
+def assign_issue_to_user(
+    issue_id: int, user_id: int, session_id: Optional[str] = None
+) -> Dict[str, Any]:
     logger.info(f"Executing assign_issue_to_user: Issue {issue_id} -> User {user_id}...")
     return update_issue(issue_id, {"assigned_to": user_id}, session_id)
 
@@ -81,25 +125,45 @@ def unassign_issue_from_user(issue_id: int, session_id: Optional[str] = None) ->
 def get_issue_statuses(project_id: int, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
     logger.info(f"Executing get_issue_statuses for project {project_id}...")
     taiga_client_wrapper = resolve_client(session_id)
-    return execute_taiga_operation("get_issue_statuses", lambda: taiga_client_wrapper.api.issue_statuses.list(query_params={"project": project_id}), f"project {project_id}")
+    return execute_taiga_operation(
+        "get_issue_statuses",
+        lambda: taiga_client_wrapper.api.issue_statuses.list(query_params={"project": project_id}),
+        f"project {project_id}",
+    )
 
 
 def get_issue_priorities(project_id: int, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
     logger.info(f"Executing get_issue_priorities for project {project_id}...")
     taiga_client_wrapper = resolve_client(session_id)
-    return execute_taiga_operation("get_issue_priorities", lambda: taiga_client_wrapper.api.issue_priorities.list(query_params={"project": project_id}), f"project {project_id}")
+    return execute_taiga_operation(
+        "get_issue_priorities",
+        lambda: taiga_client_wrapper.api.issue_priorities.list(
+            query_params={"project": project_id}
+        ),
+        f"project {project_id}",
+    )
 
 
 def get_issue_severities(project_id: int, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
     logger.info(f"Executing get_issue_severities for project {project_id}...")
     taiga_client_wrapper = resolve_client(session_id)
-    return execute_taiga_operation("get_issue_severities", lambda: taiga_client_wrapper.api.issue_severities.list(query_params={"project": project_id}), f"project {project_id}")
+    return execute_taiga_operation(
+        "get_issue_severities",
+        lambda: taiga_client_wrapper.api.issue_severities.list(
+            query_params={"project": project_id}
+        ),
+        f"project {project_id}",
+    )
 
 
 def get_issue_types(project_id: int, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
     logger.info(f"Executing get_issue_types for project {project_id}...")
     taiga_client_wrapper = resolve_client(session_id)
-    return execute_taiga_operation("get_issue_types", lambda: taiga_client_wrapper.api.issue_types.list(query_params={"project": project_id}), f"project {project_id}")
+    return execute_taiga_operation(
+        "get_issue_types",
+        lambda: taiga_client_wrapper.api.issue_types.list(query_params={"project": project_id}),
+        f"project {project_id}",
+    )
 
 
 def get_issue_by_ref(
@@ -121,15 +185,63 @@ def get_issue_by_ref(
 
 
 def register(mcp):
-    mcp.tool("list_issues", annotations=READ_ONLY, description="Lists issues for a project. Filters: status (ID), severity (ID), priority (ID), type (ID), assigned_to (user ID), tags (comma-separated), status__is_closed (bool). Use get_issue_statuses/priorities/severities/types for valid IDs. verbosity: 'minimal', 'standard' (default), 'full'.")(list_issues)
-    mcp.tool("create_issue", annotations=ADDITIVE, description="Creates a new issue within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(create_issue)
-    mcp.tool("get_issue", annotations=READ_ONLY, description="Gets detailed information about a specific issue by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_issue)
-    mcp.tool("get_issue_by_ref", annotations=READ_ONLY, description="Gets detailed information about a issue by its #ref number, the number shown in the Taiga UI and in search results (not the internal id; use get_issue for that). Requires project_id. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(get_issue_by_ref)
-    mcp.tool("update_issue", annotations=DESTRUCTIVE, description="Updates details of an existing issue. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(update_issue)
-    mcp.tool("delete_issue", annotations=DESTRUCTIVE, description="Deletes an issue by its ID. Uses default session if session_id not provided.")(delete_issue)
-    mcp.tool("assign_issue_to_user", annotations=DESTRUCTIVE, description="Assigns a specific issue to a specific user. Uses default session if session_id not provided.")(assign_issue_to_user)
-    mcp.tool("unassign_issue_from_user", annotations=DESTRUCTIVE, description="Unassigns a specific issue (sets assigned user to null). Uses default session if session_id not provided.")(unassign_issue_from_user)
-    mcp.tool("get_issue_statuses", annotations=READ_ONLY, description="Lists available issue statuses for a project. Use returned IDs with list_issues filters: {\"status\": <id>}.")(get_issue_statuses)
-    mcp.tool("get_issue_priorities", annotations=READ_ONLY, description="Lists available issue priorities for a project. Use returned IDs with list_issues filters: {\"priority\": <id>}.")(get_issue_priorities)
-    mcp.tool("get_issue_severities", annotations=READ_ONLY, description="Lists available issue severities for a project. Use returned IDs with list_issues filters: {\"severity\": <id>}.")(get_issue_severities)
-    mcp.tool("get_issue_types", annotations=READ_ONLY, description="Lists available issue types for a project. Use returned IDs with list_issues filters: {\"type\": <id>}.")(get_issue_types)
+    mcp.tool(
+        "list_issues",
+        annotations=READ_ONLY,
+        description="Lists issues for a project. Filters: status (ID), severity (ID), priority (ID), type (ID), assigned_to (user ID), tags (comma-separated), status__is_closed (bool). Use get_issue_statuses/priorities/severities/types for valid IDs. verbosity: 'minimal', 'standard' (default), 'full'.",
+    )(list_issues)
+    mcp.tool(
+        "create_issue",
+        annotations=ADDITIVE,
+        description="Creates a new issue within a project. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
+    )(create_issue)
+    mcp.tool(
+        "get_issue",
+        annotations=READ_ONLY,
+        description="Gets detailed information about a specific issue by its ID. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
+    )(get_issue)
+    mcp.tool(
+        "get_issue_by_ref",
+        annotations=READ_ONLY,
+        description="Gets detailed information about a issue by its #ref number, the number shown in the Taiga UI and in search results (not the internal id; use get_issue for that). Requires project_id. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
+    )(get_issue_by_ref)
+    mcp.tool(
+        "update_issue",
+        annotations=DESTRUCTIVE,
+        description="Updates details of an existing issue. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
+    )(update_issue)
+    mcp.tool(
+        "delete_issue",
+        annotations=DESTRUCTIVE,
+        description="Deletes an issue by its ID. Uses default session if session_id not provided.",
+    )(delete_issue)
+    mcp.tool(
+        "assign_issue_to_user",
+        annotations=DESTRUCTIVE,
+        description="Assigns a specific issue to a specific user. Uses default session if session_id not provided.",
+    )(assign_issue_to_user)
+    mcp.tool(
+        "unassign_issue_from_user",
+        annotations=DESTRUCTIVE,
+        description="Unassigns a specific issue (sets assigned user to null). Uses default session if session_id not provided.",
+    )(unassign_issue_from_user)
+    mcp.tool(
+        "get_issue_statuses",
+        annotations=READ_ONLY,
+        description='Lists available issue statuses for a project. Use returned IDs with list_issues filters: {"status": <id>}.',
+    )(get_issue_statuses)
+    mcp.tool(
+        "get_issue_priorities",
+        annotations=READ_ONLY,
+        description='Lists available issue priorities for a project. Use returned IDs with list_issues filters: {"priority": <id>}.',
+    )(get_issue_priorities)
+    mcp.tool(
+        "get_issue_severities",
+        annotations=READ_ONLY,
+        description='Lists available issue severities for a project. Use returned IDs with list_issues filters: {"severity": <id>}.',
+    )(get_issue_severities)
+    mcp.tool(
+        "get_issue_types",
+        annotations=READ_ONLY,
+        description='Lists available issue types for a project. Use returned IDs with list_issues filters: {"type": <id>}.',
+    )(get_issue_types)

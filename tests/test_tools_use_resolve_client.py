@@ -15,7 +15,9 @@ CORE_MODULES = sorted(
 def test_core_tools_do_not_use_stdio_helpers(module_path):
     source = module_path.read_text()
     assert "get_session_id" not in source, f"{module_path.name} still calls get_session_id"
-    assert "get_authenticated_client" not in source, f"{module_path.name} still calls get_authenticated_client"
+    assert "get_authenticated_client" not in source, (
+        f"{module_path.name} still calls get_authenticated_client"
+    )
     assert "resolve_client" in source, f"{module_path.name} does not use resolve_client"
 
 

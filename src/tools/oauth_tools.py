@@ -21,7 +21,10 @@ def taiga_link_status() -> Dict[str, Any]:
         raise RuntimeError("OAuth mode not configured")
 
     if bridge.credential_store.is_linked(oauth_sub):
-        return {"linked": True, "message": "Taiga account is linked; tool calls act as that Taiga user."}
+        return {
+            "linked": True,
+            "message": "Taiga account is linked; tool calls act as that Taiga user.",
+        }
 
     return {
         "linked": False,
@@ -42,7 +45,11 @@ def taiga_unlink_account() -> Dict[str, Any]:
         "status": "unlinked",
         "revoked_in_taiga": revoked,
         "message": "Taiga account has been unlinked."
-        + ("" if revoked else " The application token could not be revoked in Taiga; an administrator can remove it there."),
+        + (
+            ""
+            if revoked
+            else " The application token could not be revoked in Taiga; an administrator can remove it there."
+        ),
     }
 
 

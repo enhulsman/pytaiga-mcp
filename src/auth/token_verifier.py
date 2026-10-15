@@ -96,5 +96,7 @@ class Auth0TokenVerifier:
             logger.warning(f"Token verification failed: {e}")
             # Log token prefix to help diagnose opaque vs JWT issues
             if token and not token.startswith("eyJ"):
-                logger.warning("Token does not look like a JWT (no eyJ prefix) — Auth0 may be issuing opaque tokens. Set Default Audience in Auth0 tenant settings.")
+                logger.warning(
+                    "Token does not look like a JWT (no eyJ prefix) — Auth0 may be issuing opaque tokens. Set Default Audience in Auth0 tenant settings."
+                )
             return None

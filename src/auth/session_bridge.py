@@ -46,9 +46,7 @@ class OAuthSessionBridge:
         lock = self._user_locks[oauth_sub]
 
         async with lock:
-            return await anyio.to_thread.run_sync(
-                lambda: self.get_client_sync(oauth_sub)
-            )
+            return await anyio.to_thread.run_sync(lambda: self.get_client_sync(oauth_sub))
 
     def get_client_sync(self, oauth_sub: str) -> Optional[TaigaClientWrapper]:
         """Synchronous client resolution.
@@ -96,7 +94,9 @@ class OAuthSessionBridge:
                     client.api.delete(f"/application-tokens/{app_token_id}")
                     revoked = True
                 except Exception as e:
-                    logger.warning(f"Could not revoke Taiga application token for {oauth_sub[:8]}...: {e}")
+                    logger.warning(
+                        f"Could not revoke Taiga application token for {oauth_sub[:8]}...: {e}"
+                    )
         self._forget(oauth_sub)
         logger.info(f"Unlinked user {oauth_sub[:8]}... (revoked in Taiga: {revoked})")
         return revoked

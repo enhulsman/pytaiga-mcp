@@ -29,21 +29,29 @@ def _application_id_of(entry: dict) -> Optional[str]:
     return str(app) if app is not None else None
 
 
-def mint_application_token(bearer_client: TaigaClientWrapper, application_id: str) -> Tuple[str, Optional[int]]:
+def mint_application_token(
+    bearer_client: TaigaClientWrapper, application_id: str
+) -> Tuple[str, Optional[int]]:
     """Return (application_token, taiga_app_token_id_or_None) for the logged-in user."""
     state = secrets.token_urlsafe(32)
-    authorized = bearer_client.api.post(
-        "/application-tokens/authorize",
-        json={"application": application_id, "state": state},
-    ) or {}
+    authorized = (
+        bearer_client.api.post(
+            "/application-tokens/authorize",
+            json={"application": application_id, "state": state},
+        )
+        or {}
+    )
     auth_code = authorized.get("auth_code")
     if not auth_code:
         raise ValueError("Taiga did not return an auth_code for the application")
 
-    validated = bearer_client.api.post(
-        "/application-tokens/validate",
-        json={"application": application_id, "auth_code": auth_code, "state": state},
-    ) or {}
+    validated = (
+        bearer_client.api.post(
+            "/application-tokens/validate",
+            json={"application": application_id, "auth_code": auth_code, "state": state},
+        )
+        or {}
+    )
     token = validated.get("token")
     if not token:
         raise ValueError("Taiga did not return an application token")

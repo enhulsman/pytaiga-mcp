@@ -59,9 +59,7 @@ def _cleanup_expired_states():
 
 def _derive_session_key(fernet_key: str) -> bytes:
     """Derive session signing key from Fernet key (domain separation)."""
-    return hmac.new(
-        fernet_key.encode(), b"taiga-mcp:link-session", hashlib.sha256
-    ).digest()
+    return hmac.new(fernet_key.encode(), b"taiga-mcp:link-session", hashlib.sha256).digest()
 
 
 def _sign_session(sub: str, session_key: bytes, ttl: int) -> str:
@@ -223,10 +221,16 @@ def create_link_routes(credential_store: TaigaCredentialStore, bridge=None) -> l
         cookie = request.cookies.get("taiga_link_session")
         sub = _verify_session(cookie, session_key) if cookie else None
         if not sub:
-            return HTMLResponse("<h1>Session expired</h1><p>Please start over.</p>", status_code=401)
+            return HTMLResponse(
+                "<h1>Session expired</h1><p>Please start over.</p>", status_code=401
+            )
 
         is_linked = credential_store.is_linked(sub)
-        status_msg = '<p style="color:green">Your Taiga account is already linked. Submit to re-link.</p>' if is_linked else ""
+        status_msg = (
+            '<p style="color:green">Your Taiga account is already linked. Submit to re-link.</p>'
+            if is_linked
+            else ""
+        )
 
         html = f"""<!DOCTYPE html>
 <html>
@@ -239,7 +243,7 @@ button:hover{{background:#3b4252}}</style></head>
 <h1>Link Taiga Account</h1>
 {status_msg}
 <p>Enter your Taiga credentials to link your account. Your password is used once to authorize the Taiga MCP application on the Taiga server and is never stored; Taiga issues a revocable application token instead.</p>
-<form method="POST" action="{request.url_for('link_form_submit')}">
+<form method="POST" action="{request.url_for("link_form_submit")}">
 <label>Taiga Username</label>
 <input type="text" name="username" required autocomplete="username">
 <label>Taiga Password</label>
@@ -314,9 +318,7 @@ button:hover{{background:#3b4252}}</style></head>
             import jwt as pyjwt
 
             try:
-                claims = pyjwt.decode(
-                    auth_header[7:], options={"verify_signature": False}
-                )
+                claims = pyjwt.decode(auth_header[7:], options={"verify_signature": False})
                 sub = claims.get("sub")
             except Exception:
                 pass
@@ -341,9 +343,7 @@ button:hover{{background:#3b4252}}</style></head>
             import jwt as pyjwt
 
             try:
-                claims = pyjwt.decode(
-                    auth_header[7:], options={"verify_signature": False}
-                )
+                claims = pyjwt.decode(auth_header[7:], options={"verify_signature": False})
                 sub = claims.get("sub")
             except Exception:
                 pass
@@ -369,7 +369,7 @@ button:hover{{background:#3b4252}}</style></head>
         """
         return HTMLResponse(
             "<h1>Taiga MCP</h1><p>Account linking is done at "
-            f"<a href=\"{request.url_for('link_account')}\">/link-account</a>.</p>"
+            f'<a href="{request.url_for("link_account")}">/link-account</a>.</p>'
         )
 
     return [

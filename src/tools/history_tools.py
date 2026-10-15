@@ -33,23 +33,35 @@ def _simplify_history_user(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]
     return entries
 
 
-def list_history(object_type: str, object_id: int, session_id: Optional[str] = None, verbosity: str = "standard") -> List[Dict[str, Any]]:
+def list_history(
+    object_type: str, object_id: int, session_id: Optional[str] = None, verbosity: str = "standard"
+) -> List[Dict[str, Any]]:
     """Lists history entries for an object, including comments and changes."""
     if object_type not in VALID_HISTORY_TYPES:
-        raise ValueError(f"Invalid object_type '{object_type}'. Must be one of: {', '.join(sorted(VALID_HISTORY_TYPES))}")
+        raise ValueError(
+            f"Invalid object_type '{object_type}'. Must be one of: {', '.join(sorted(VALID_HISTORY_TYPES))}"
+        )
     logger.info(f"Executing list_history for {object_type}/{object_id}...")
     taiga_client_wrapper = resolve_client(session_id)
-    result = execute_taiga_operation("list_history", lambda: taiga_client_wrapper.api.get(f"/history/{object_type}/{object_id}"), f"{object_type}/{object_id}")
+    result = execute_taiga_operation(
+        "list_history",
+        lambda: taiga_client_wrapper.api.get(f"/history/{object_type}/{object_id}"),
+        f"{object_type}/{object_id}",
+    )
     filtered = filter_response(result, "history_entry", verbosity)
     if verbosity != "full" and isinstance(filtered, list):
         filtered = _simplify_history_user(filtered)
     return filtered
 
 
-def add_comment(object_type: str, object_id: int, comment: str, session_id: Optional[str] = None) -> Dict[str, Any]:
+def add_comment(
+    object_type: str, object_id: int, comment: str, session_id: Optional[str] = None
+) -> Dict[str, Any]:
     """Adds a comment to an object via PATCH with comment field."""
     if object_type not in VALID_HISTORY_TYPES:
-        raise ValueError(f"Invalid object_type '{object_type}'. Must be one of: {', '.join(sorted(VALID_HISTORY_TYPES))}")
+        raise ValueError(
+            f"Invalid object_type '{object_type}'. Must be one of: {', '.join(sorted(VALID_HISTORY_TYPES))}"
+        )
     if not comment or not comment.strip():
         raise ValueError("Comment cannot be empty")
     logger.info(f"Executing add_comment to {object_type}/{object_id}...")
@@ -61,12 +73,29 @@ def add_comment(object_type: str, object_id: int, comment: str, session_id: Opti
         version = obj.get("version")
         if version is None:
             raise ValueError(f"Could not get version for {object_type}/{object_id}")
-        result = taiga_client_wrapper.api.patch(f"/{resource_endpoint}/{object_id}", json={"comment": comment.strip(), "version": version})
-        return {"status": "comment_added", "object_type": object_type, "object_id": object_id, "comment": comment.strip(), "new_version": result.get("version")}
+        result = taiga_client_wrapper.api.patch(
+            f"/{resource_endpoint}/{object_id}",
+            json={"comment": comment.strip(), "version": version},
+        )
+        return {
+            "status": "comment_added",
+            "object_type": object_type,
+            "object_id": object_id,
+            "comment": comment.strip(),
+            "new_version": result.get("version"),
+        }
 
     return execute_taiga_operation("add_comment", do_add_comment, f"{object_type}/{object_id}")
 
 
 def register(mcp):
-    mcp.tool("list_history", annotations=READ_ONLY, description="Lists history entries (including comments) for an object. object_type must be one of: userstory, task, issue, epic, wiki. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.")(list_history)
-    mcp.tool("add_comment", annotations=ADDITIVE, description="Adds a comment to an object. object_type must be one of: userstory, task, issue, epic, wiki. Uses default session if session_id not provided.")(add_comment)
+    mcp.tool(
+        "list_history",
+        annotations=READ_ONLY,
+        description="Lists history entries (including comments) for an object. object_type must be one of: userstory, task, issue, epic, wiki. verbosity: 'minimal', 'standard' (default), 'full'. Uses default session if session_id not provided.",
+    )(list_history)
+    mcp.tool(
+        "add_comment",
+        annotations=ADDITIVE,
+        description="Adds a comment to an object. object_type must be one of: userstory, task, issue, epic, wiki. Uses default session if session_id not provided.",
+    )(add_comment)

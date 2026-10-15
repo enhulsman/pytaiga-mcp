@@ -48,7 +48,9 @@ class TestSessionBridge:
 
             client = await bridge.get_client("auth0|user1")
             assert client is not None
-            mock_instance.set_token.assert_called_once_with("test-taiga-token", token_type="Application")
+            mock_instance.set_token.assert_called_once_with(
+                "test-taiga-token", token_type="Application"
+            )
 
     @pytest.mark.asyncio
     async def test_cached_client_reused(self, bridge, credential_store):

@@ -22,9 +22,7 @@ def _trim_hit(hit: Dict[str, Any]) -> Dict[str, Any]:
     return trimmed
 
 
-def search(
-    project_id: int, text: str, session_id: Optional[str] = None
-) -> Dict[str, Any]:
+def search(project_id: int, text: str, session_id: Optional[str] = None) -> Dict[str, Any]:
     """Searches user stories, tasks, issues, epics and wiki pages of a project by text."""
     query = (text or "").strip()
     if not query:

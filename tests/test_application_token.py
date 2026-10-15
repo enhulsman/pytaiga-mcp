@@ -13,20 +13,26 @@ def _client(post_side_effect=None, tokens=None, get_side_effect=None):
     wrapper = MagicMock()
     api = wrapper.api
     if post_side_effect is None:
+
         def post_side_effect(path, json=None, **kwargs):
             if path == "/application-tokens/authorize":
                 return {"auth_code": "code-123", "state": json["state"], "next_url": "x"}
             if path == "/application-tokens/validate":
                 return {"token": "app-token-xyz"}
             raise AssertionError(path)
+
     api.post.side_effect = post_side_effect
     if get_side_effect:
         api.get.side_effect = get_side_effect
     else:
-        api.get.return_value = tokens if tokens is not None else [
-            {"id": 41, "application": {"id": "other-app"}},
-            {"id": 42, "application": {"id": APP_ID}},
-        ]
+        api.get.return_value = (
+            tokens
+            if tokens is not None
+            else [
+                {"id": 41, "application": {"id": "other-app"}},
+                {"id": 42, "application": {"id": APP_ID}},
+            ]
+        )
     return wrapper
 
 
@@ -70,6 +76,7 @@ def test_mint_without_auth_code_raises():
 
 def test_mint_tolerates_token_listing_failure():
     """The Taiga-side id is only needed for revocation; linking must not fail without it."""
+
     def failing_get(path, **kwargs):
         raise RuntimeError("listing broke")
 

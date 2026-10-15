@@ -14,63 +14,111 @@ from typing import AsyncIterator
 from mcp.server.fastmcp import FastMCP
 
 from src.config import settings
-from src.session import DEFAULT_SESSION_ID, active_sessions, set_oauth_bridge
-from src.taiga_client import TaigaClientWrapper
-from src.tools import register_all_tools
 
 # Re-export for backward compatibility with tests
 from src.response_filter import (  # noqa: F401
     ALLOWED_KWARGS,
     RESPONSE_FIELDS,
     VALID_VERBOSITY_LEVELS,
-    filter_response as _filter_response,
-    validate_kwargs as _validate_kwargs,
 )
+from src.response_filter import (
+    filter_response as _filter_response,  # noqa: F401
+)
+from src.response_filter import (
+    validate_kwargs as _validate_kwargs,  # noqa: F401
+)
+from src.session import DEFAULT_SESSION_ID, active_sessions, set_oauth_bridge
 from src.session import (  # noqa: F401
     execute_taiga_operation as _execute_taiga_operation,
-    get_authenticated_client as _get_authenticated_client,
-    get_session_id as _get_session_id,
 )
-from src.tools.history_tools import (  # noqa: F401
-    HISTORY_TYPE_TO_RESOURCE,
-    VALID_HISTORY_TYPES,
-    _simplify_history_user,
+from src.session import (
+    get_authenticated_client as _get_authenticated_client,  # noqa: F401
 )
+from src.session import (
+    get_session_id as _get_session_id,  # noqa: F401
+)
+from src.taiga_client import TaigaClientWrapper
+from src.tools import register_all_tools
 
 # Re-export tool functions for backward compatibility with tests
 from src.tools.auth_tools import get_default_session, login, logout, session_status  # noqa: F401
-from src.tools.project_tools import (  # noqa: F401
-    list_projects, list_all_projects, get_project, get_project_by_slug,
-    create_project, update_project, delete_project,
+from src.tools.epic_tools import (  # noqa: F401
+    assign_epic_to_user,
+    create_epic,
+    delete_epic,
+    get_epic,
+    link_story_to_epic,
+    list_epic_user_stories,
+    list_epics,
+    unassign_epic_from_user,
+    unlink_story_from_epic,
+    update_epic,
 )
-from src.tools.userstory_tools import (  # noqa: F401
-    list_user_stories, create_user_story, get_user_story, update_user_story,
-    delete_user_story, assign_user_story_to_user, unassign_user_story_from_user,
-    get_user_story_statuses,
-)
-from src.tools.task_tools import (  # noqa: F401
-    list_tasks, create_task, get_task, update_task, delete_task,
-    assign_task_to_user, unassign_task_from_user, get_task_statuses,
+from src.tools.history_tools import (  # noqa: F401  # noqa: F401
+    HISTORY_TYPE_TO_RESOURCE,
+    VALID_HISTORY_TYPES,
+    _simplify_history_user,
+    add_comment,
+    list_history,
 )
 from src.tools.issue_tools import (  # noqa: F401
-    list_issues, create_issue, get_issue, update_issue, delete_issue,
-    assign_issue_to_user, unassign_issue_from_user,
-    get_issue_statuses, get_issue_priorities, get_issue_severities, get_issue_types,
-)
-from src.tools.epic_tools import (  # noqa: F401
-    list_epics, create_epic, get_epic, update_epic, delete_epic,
-    assign_epic_to_user, unassign_epic_from_user,
-    list_epic_user_stories, link_story_to_epic, unlink_story_from_epic,
-)
-from src.tools.milestone_tools import (  # noqa: F401
-    list_milestones, create_milestone, get_milestone, update_milestone,
-    delete_milestone, get_milestone_stats,
-)
-from src.tools.wiki_tools import (  # noqa: F401
-    list_wiki_pages, get_wiki_page, create_wiki_page, update_wiki_page, delete_wiki_page,
+    assign_issue_to_user,
+    create_issue,
+    delete_issue,
+    get_issue,
+    get_issue_priorities,
+    get_issue_severities,
+    get_issue_statuses,
+    get_issue_types,
+    list_issues,
+    unassign_issue_from_user,
+    update_issue,
 )
 from src.tools.member_tools import get_project_members, invite_project_user  # noqa: F401
-from src.tools.history_tools import list_history, add_comment  # noqa: F401
+from src.tools.milestone_tools import (  # noqa: F401
+    create_milestone,
+    delete_milestone,
+    get_milestone,
+    get_milestone_stats,
+    list_milestones,
+    update_milestone,
+)
+from src.tools.project_tools import (  # noqa: F401
+    create_project,
+    delete_project,
+    get_project,
+    get_project_by_slug,
+    list_all_projects,
+    list_projects,
+    update_project,
+)
+from src.tools.task_tools import (  # noqa: F401
+    assign_task_to_user,
+    create_task,
+    delete_task,
+    get_task,
+    get_task_statuses,
+    list_tasks,
+    unassign_task_from_user,
+    update_task,
+)
+from src.tools.userstory_tools import (  # noqa: F401
+    assign_user_story_to_user,
+    create_user_story,
+    delete_user_story,
+    get_user_story,
+    get_user_story_statuses,
+    list_user_stories,
+    unassign_user_story_from_user,
+    update_user_story,
+)
+from src.tools.wiki_tools import (  # noqa: F401
+    create_wiki_page,
+    delete_wiki_page,
+    get_wiki_page,
+    list_wiki_pages,
+    update_wiki_page,
+)
 
 # --- Logging Setup ---
 logging.basicConfig(
@@ -128,6 +176,7 @@ def create_mcp_server() -> FastMCP:
     if transport == "streamable-http" and settings.has_oauth_config:
         # HTTP mode with OAuth: configure auth
         from mcp.server.auth.settings import AuthSettings
+
         from src.auth.credential_store import TaigaCredentialStore
         from src.auth.session_bridge import OAuthSessionBridge
         from src.auth.token_verifier import Auth0TokenVerifier
@@ -207,8 +256,9 @@ async def run_http_with_link_routes(mcp_server: FastMCP):
     mounting the MCP Starlette app inside our own app means its lifespan
     doesn't automatically run.
     """
-    import uvicorn
     from contextlib import asynccontextmanager
+
+    import uvicorn
     from starlette.applications import Starlette
     from starlette.routing import Mount
 
@@ -218,9 +268,11 @@ async def run_http_with_link_routes(mcp_server: FastMCP):
     # Build link routes if credential store is available
     extra_routes = []
     from src.session import get_oauth_bridge
+
     bridge = get_oauth_bridge()
     if bridge:
         from src.auth.link_routes import create_link_routes
+
         link_routes = create_link_routes(bridge.credential_store, bridge=bridge)
         if link_routes:
             extra_routes = link_routes
@@ -260,6 +312,7 @@ if __name__ == "__main__":
     transport = _get_transport()
     if transport == "streamable-http" and settings.has_oauth_config:
         import anyio
+
         anyio.run(lambda: run_http_with_link_routes(mcp))
     else:
         mcp.run(transport=transport)

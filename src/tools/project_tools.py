@@ -14,7 +14,7 @@ def list_projects(
     session_id: Optional[str] = None, verbosity: str = "standard"
 ) -> List[Dict[str, Any]]:
     """Lists projects accessible by the authenticated user."""
-    logger.info(f"Executing list_projects...")
+    logger.info("Executing list_projects...")
     taiga_client_wrapper = resolve_client(session_id)
 
     result = execute_taiga_operation(
@@ -27,7 +27,7 @@ def list_all_projects(
     session_id: Optional[str] = None, verbosity: str = "standard"
 ) -> List[Dict[str, Any]]:
     """Lists all projects visible to the authenticated user."""
-    logger.info(f"Executing list_all_projects...")
+    logger.info("Executing list_all_projects...")
     return list_projects(session_id, verbosity)
 
 
@@ -70,9 +70,7 @@ def create_project(
 ) -> Dict[str, Any]:
     """Creates a new project. Requires name and description. Optional args via kwargs dict."""
     parsed_kwargs = validate_kwargs("project", kwargs or {})
-    logger.info(
-        f"Executing create_project '{name}' with data: {parsed_kwargs}"
-    )
+    logger.info(f"Executing create_project '{name}' with data: {parsed_kwargs}")
     taiga_client_wrapper = resolve_client(session_id)
     if not name or not description:
         raise ValueError("Project name and description are required.")
@@ -95,9 +93,7 @@ def update_project(
 ) -> Dict[str, Any]:
     """Updates a project. Pass fields to update as kwargs dict."""
     parsed_kwargs = validate_kwargs("project", kwargs or {})
-    logger.info(
-        f"Executing update_project ID {project_id} with data: {parsed_kwargs}"
-    )
+    logger.info(f"Executing update_project ID {project_id} with data: {parsed_kwargs}")
     taiga_client_wrapper = resolve_client(session_id)
 
     def do_update():
@@ -122,9 +118,7 @@ def update_project(
 
 def delete_project(project_id: int, session_id: Optional[str] = None) -> Dict[str, Any]:
     """Deletes a project by ID."""
-    logger.warning(
-        f"Executing delete_project ID {project_id}..."
-    )
+    logger.warning(f"Executing delete_project ID {project_id}...")
     taiga_client_wrapper = resolve_client(session_id)
 
     def do_delete():
