@@ -121,18 +121,26 @@ def test_read_only_tools_say_so(annotations):
 
 def test_additive_tools_write_without_destroying(annotations):
     wrong = [
-        n for n in ADDITIVE
-        if not (annotations[n] and annotations[n].readOnlyHint is False
-                and annotations[n].destructiveHint is False)
+        n
+        for n in ADDITIVE
+        if not (
+            annotations[n]
+            and annotations[n].readOnlyHint is False
+            and annotations[n].destructiveHint is False
+        )
     ]
     assert wrong == []
 
 
 def test_destructive_tools_are_flagged(annotations):
     wrong = [
-        n for n in DESTRUCTIVE
-        if not (annotations[n] and annotations[n].readOnlyHint is False
-                and annotations[n].destructiveHint is True)
+        n
+        for n in DESTRUCTIVE
+        if not (
+            annotations[n]
+            and annotations[n].readOnlyHint is False
+            and annotations[n].destructiveHint is True
+        )
     ]
     assert wrong == []
 
