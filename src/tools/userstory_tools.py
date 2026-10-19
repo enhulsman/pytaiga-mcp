@@ -38,6 +38,8 @@ def create_user_story(
 ) -> Dict[str, Any]:
     """Creates a user story. Requires project_id and subject."""
     parsed_kwargs = validate_kwargs("user_story", kwargs or {})
+    if "subject" in parsed_kwargs:
+        raise ValueError("Pass subject as the explicit subject argument, not in kwargs.")
     logger.info(f"Executing create_user_story '{subject}' in project {project_id}...")
     taiga_client_wrapper = resolve_client(session_id)
     if not subject:
@@ -76,6 +78,10 @@ def update_user_story(
 ) -> Dict[str, Any]:
     """Updates a user story. Pass fields to update as kwargs dict."""
     parsed_kwargs = validate_kwargs("user_story", kwargs or {})
+    if "subject" in parsed_kwargs:
+        subject = parsed_kwargs["subject"]
+        if not isinstance(subject, str) or not subject.strip():
+            raise ValueError("subject must be a non-empty string.")
     logger.info(f"Executing update_user_story ID {user_story_id} with data: {parsed_kwargs}")
     taiga_client_wrapper = resolve_client(session_id)
 

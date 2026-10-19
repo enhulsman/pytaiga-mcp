@@ -37,6 +37,8 @@ The bridge supports the following Taiga resources with complete CRUD operations:
 - **Issues**: Manage bugs, questions, and enhancement requests
 - **Sprints (Milestones)**: Plan and track work in time-boxed intervals
 
+The `update_user_story`, `update_task`, `update_issue`, and `update_epic` tools accept `subject` in `kwargs` to rename an item; it must be a non-blank string.
+
 ### Security & Configuration
 
 - **Secure Credentials**: Environment variable authentication with credential protection - passwords never appear in logs or error messages

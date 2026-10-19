@@ -40,6 +40,8 @@ def create_issue(
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
     parsed_kwargs = validate_kwargs("issue", kwargs or {})
+    if "subject" in parsed_kwargs:
+        raise ValueError("Pass subject as the explicit subject argument, not in kwargs.")
     logger.info(f"Executing create_issue '{subject}' in project {project_id}...")
     taiga_client_wrapper = resolve_client(session_id)
     if not subject:
@@ -79,6 +81,10 @@ def update_issue(
     verbosity: str = "standard",
 ) -> Dict[str, Any]:
     parsed_kwargs = validate_kwargs("issue", kwargs or {})
+    if "subject" in parsed_kwargs:
+        subject = parsed_kwargs["subject"]
+        if not isinstance(subject, str) or not subject.strip():
+            raise ValueError("subject must be a non-empty string.")
     logger.info(f"Executing update_issue ID {issue_id} with data: {parsed_kwargs}")
     taiga_client_wrapper = resolve_client(session_id)
 

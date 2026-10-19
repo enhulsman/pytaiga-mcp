@@ -30,6 +30,7 @@ ALLOWED_KWARGS: Dict[str, set] = {
         "is_contact_activated",
     },
     "user_story": {
+        "subject",
         "description",
         "status",
         "is_closed",
@@ -50,6 +51,7 @@ ALLOWED_KWARGS: Dict[str, set] = {
         "due_date_reason",
     },
     "task": {
+        "subject",
         "description",
         "status",
         "milestone",
@@ -65,6 +67,7 @@ ALLOWED_KWARGS: Dict[str, set] = {
         "taskboard_order",
     },
     "issue": {
+        "subject",
         "description",
         "status",
         "priority",
@@ -80,6 +83,7 @@ ALLOWED_KWARGS: Dict[str, set] = {
         "due_date_reason",
     },
     "epic": {
+        "subject",
         "description",
         "status",
         "assigned_to",
