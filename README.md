@@ -364,11 +364,16 @@ pyTaigaMCP/
 Run tests with pytest:
 
 ```bash
-# Run all tests
+# Run offline unit tests (integration and live tests are excluded by default)
 pytest
 
 # Run with coverage reporting
 pytest --cov=src
+
+# Run integration tests against a disposable Taiga instance (default: localhost:9000)
+# These tests create and update data; set TAIGA_TEST_HOST, TAIGA_TEST_USERNAME,
+# and TAIGA_TEST_PASSWORD for that instance before running them.
+pytest -m integration
 ```
 
 ### Debugging and Inspection
