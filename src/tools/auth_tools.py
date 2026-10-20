@@ -102,7 +102,17 @@ def session_status(session_id: Optional[str] = None) -> Dict[str, Any]:
                 "session_id": actual_session_id,
                 "username": username,
             }
-        except TaigaException:
+        except TaigaException as error:
+            if isinstance(client_wrapper, TaigaClientWrapper) and not (
+                client_wrapper.should_invalidate_after_status_failure(error)
+            ):
+                # Keep automatic recovery available after an inconclusive
+                # status check, including failures of the retried request.
+                return {
+                    "status": "error",
+                    "reason": "check_failed",
+                    "session_id": actual_session_id,
+                }
             logger.warning(
                 f"Session {actual_session_id[:8]} found but token seems invalid (API check failed)."
             )

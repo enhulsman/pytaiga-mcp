@@ -133,6 +133,8 @@ LOG_LEVEL=INFO
 
 ### With stdio mode
 
+The default session created from `TAIGA_USERNAME`/`TAIGA_PASSWORD` automatically re-logs in when a tool resolves a token older than 23 hours, or retries an API request once after a 401 by logging in again. Set `TAIGA_RELOGIN_MAX_AGE_SECONDS` to a positive number of seconds to change the age limit (default `82800`). A second failure is returned to the caller. Credentials remain in settings and are never retained on the wrapper or logged during re-login. OAuth identities and sessions created by the `login()` tool do not re-login automatically; expired manual sessions require `login()` again.
+
 Paste the following json in your Claude App's or Cursor's mcp settings section.
 
 **Recommended**: Set credentials via environment variables in your shell profile rather than in config files to avoid exposing them in plaintext.

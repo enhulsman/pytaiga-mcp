@@ -79,6 +79,8 @@ def get_session_id(session_id: Optional[str] = None) -> str:
 def get_authenticated_client(session_id: str) -> TaigaClientWrapper:
     """Retrieves the authenticated TaigaClientWrapper for a given session ID (stdio mode)."""
     client = active_sessions.get(session_id)
+    if isinstance(client, TaigaClientWrapper):
+        client.refresh_if_expired()
     if not client or not client.is_authenticated:
         logger.warning(
             f"Invalid or expired session ID provided: {session_id[:8] if session_id else 'None'}..."
