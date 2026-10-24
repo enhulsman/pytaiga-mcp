@@ -248,6 +248,20 @@ The reference deployment uses Auth0 (managed, free tier, no operations burden). 
 
 In claude.ai: Organization Settings, Connectors, Add custom connector. URL `<public URL>/mcp`, and under advanced settings the client id and secret of the claude.ai application. Team members then enable the connector per conversation.
 
+#### Codex with Auth0 CIMD
+
+Enable Auth0's Client ID Metadata Document Registration and Resource Parameter Compatibility Profile. Import the Codex client metadata document selected for your MCP URL, grant that application User-Delegated Access to `taiga:read` and `taiga:write`, and make the intended login connection available at domain level. Users then authenticate with their own Auth0 accounts and link their Taiga accounts once.
+
+Some Codex builds select scopes from Auth0's authorization-server metadata instead of the MCP resource metadata. For those builds, configure the API scopes explicitly in the server entry in `~/.codex/config.toml` before authenticating:
+
+```toml
+[mcp_servers.taiga]
+url = "https://your-mcp.example/mcp"
+scopes = ["taiga:read", "taiga:write"]
+```
+
+`OAUTH_AUDIENCE` must match the registered Auth0 API identifier exactly. The server preserves an empty URL path in discovery metadata, so an identifier without a trailing slash remains unchanged. This requires Pydantic 2.12 or later.
+
 References: [Claude custom connectors](https://support.claude.com/en/articles/11175166), [building custom connectors](https://support.claude.com/en/articles/11503834), [MCP authorization spec](https://modelcontextprotocol.io/specification/draft/basic/authorization), [Auth0 for MCP servers](https://auth0.com/ai/docs/mcp/get-started/authorization-for-your-mcp-server).
 
 #### Manual Session Management

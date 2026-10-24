@@ -9,9 +9,10 @@ import logging
 import logging.config
 import sys
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import Annotated, AsyncIterator
 
 from mcp.server.fastmcp import FastMCP
+from pydantic import AnyHttpUrl, TypeAdapter, UrlConstraints
 
 from src.config import settings
 
@@ -181,9 +182,13 @@ def create_mcp_server() -> FastMCP:
         from src.auth.session_bridge import OAuthSessionBridge
         from src.auth.token_verifier import Auth0TokenVerifier
 
+        # OAuth resource identifiers must match the registered audience exactly.
+        resource_url = TypeAdapter(
+            Annotated[AnyHttpUrl, UrlConstraints(preserve_empty_path=True)]
+        ).validate_python(settings.oauth_audience)
         auth_settings = AuthSettings(
             issuer_url=settings.oauth_issuer_url,
-            resource_server_url=settings.oauth_audience,
+            resource_server_url=resource_url,
             required_scopes=settings.scopes_list or None,
         )
 
