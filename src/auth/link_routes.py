@@ -85,11 +85,23 @@ def _verify_session(cookie_value: str, session_key: bytes) -> Optional[str]:
         return None
 
 
-def create_link_routes(credential_store: TaigaCredentialStore, bridge=None) -> list[Route]:
+def create_link_routes(
+    credential_store: TaigaCredentialStore,
+    bridge=None,
+    token_verifier=None,
+    required_scopes: Optional[list[str]] = None,
+) -> list[Route]:
     """Create Starlette routes for the credential linking flow.
 
     `bridge` (an OAuthSessionBridge) is optional; when given, unlinking also
     revokes the application token on the Taiga side.
+
+    `token_verifier` is the same verifier that guards /mcp (Auth0TokenVerifier).
+    /link-status and /unlink-account accept either a Bearer token it accepts or
+    the signed session cookie of the browser flow. A Bearer header that fails
+    verification is rejected with 401 and never falls back to the cookie; with
+    no verifier configured, every Bearer token is rejected. `required_scopes`
+    applies the same scope policy as /mcp (403 when one is missing).
     """
 
     encryption_key = settings.get_encryption_key()
@@ -188,7 +200,8 @@ def create_link_routes(credential_store: TaigaCredentialStore, bridge=None) -> l
             logger.error(f"Token exchange error: {e}")
             return HTMLResponse("<h1>Token exchange error</h1>", status_code=502)
 
-        # Decode JWT to get sub (without validation - we just got it from Auth0)
+        # Unverified decode is safe only here: this token came straight from Auth0's token
+        # endpoint over TLS in exchange for our code. Never do this with a client-supplied token.
         import jwt as pyjwt
 
         try:
@@ -308,52 +321,58 @@ button:hover{{background:#3b4252}}</style></head>
         response.delete_cookie("taiga_link_session")
         return response
 
+    async def _authenticate(request: Request) -> tuple[Optional[str], Optional[Response]]:
+        """Resolve the caller's OAuth subject for the status/unlink routes.
+
+        Returns (sub, None) on success or (None, error_response). A Bearer token
+        must pass the verifier; when one is presented, the cookie is not consulted.
+        """
+        auth_header = request.headers.get("authorization", "")
+        scheme, _, token = auth_header.partition(" ")
+        if scheme.lower() == "bearer":
+            token = token.strip()
+            access = None
+            if token and token_verifier is not None:
+                try:
+                    access = await token_verifier.verify_token(token)
+                except Exception as e:  # JWKS outage etc.: fail closed
+                    logger.warning(f"Bearer verification error on link route: {e}")
+                    access = None
+            if access is None or not access.client_id:
+                return None, JSONResponse(
+                    {"error": "invalid_token"},
+                    status_code=401,
+                    headers={"WWW-Authenticate": 'Bearer error="invalid_token"'},
+                )
+            missing = [s for s in (required_scopes or []) if s not in (access.scopes or [])]
+            if missing:
+                return None, JSONResponse(
+                    {"error": "insufficient_scope"},
+                    status_code=403,
+                    headers={"WWW-Authenticate": 'Bearer error="insufficient_scope"'},
+                )
+            return access.client_id, None
+
+        cookie = request.cookies.get("taiga_link_session")
+        sub = _verify_session(cookie, session_key) if cookie else None
+        if not sub:
+            return None, JSONResponse({"error": "unauthorized"}, status_code=401)
+        return sub, None
+
     async def link_status(request: Request) -> Response:
         """Check if the current OAuth user is linked (via Bearer token or session cookie)."""
-        # Try Bearer token first
-        auth_header = request.headers.get("authorization", "")
-        sub = None
-
-        if auth_header.lower().startswith("bearer "):
-            import jwt as pyjwt
-
-            try:
-                claims = pyjwt.decode(auth_header[7:], options={"verify_signature": False})
-                sub = claims.get("sub")
-            except Exception:
-                pass
-
-        # Fall back to session cookie
-        if not sub:
-            cookie = request.cookies.get("taiga_link_session")
-            sub = _verify_session(cookie, session_key) if cookie else None
-
-        if not sub:
-            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        sub, error = await _authenticate(request)
+        if error is not None:
+            return error
 
         linked = credential_store.is_linked(sub)
         return JSONResponse({"linked": linked, "oauth_sub": sub[:8] + "..."})
 
     async def unlink_account(request: Request) -> Response:
         """Remove credential mapping."""
-        auth_header = request.headers.get("authorization", "")
-        sub = None
-
-        if auth_header.lower().startswith("bearer "):
-            import jwt as pyjwt
-
-            try:
-                claims = pyjwt.decode(auth_header[7:], options={"verify_signature": False})
-                sub = claims.get("sub")
-            except Exception:
-                pass
-
-        if not sub:
-            cookie = request.cookies.get("taiga_link_session")
-            sub = _verify_session(cookie, session_key) if cookie else None
-
-        if not sub:
-            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        sub, error = await _authenticate(request)
+        if error is not None:
+            return error
 
         if bridge is not None:
             bridge.unlink(sub)

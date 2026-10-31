@@ -28,7 +28,12 @@ from src.response_filter import (
 from src.response_filter import (
     validate_kwargs as _validate_kwargs,  # noqa: F401
 )
-from src.session import DEFAULT_SESSION_ID, active_sessions, set_oauth_bridge
+from src.session import (
+    DEFAULT_SESSION_ID,
+    active_sessions,
+    set_link_token_verifier,
+    set_oauth_bridge,
+)
 from src.session import (  # noqa: F401
     execute_taiga_operation as _execute_taiga_operation,
 )
@@ -190,6 +195,8 @@ def create_mcp_server() -> FastMCP:
             issuer_url=settings.oauth_issuer_url,
             resource_server_url=resource_url,
             required_scopes=settings.scopes_list or None,
+            # Auth0TokenVerifier enforces `aud` itself; Auth0 sets no RFC 8707 resource claim.
+            validate_token_resource=False,
         )
 
         token_verifier = Auth0TokenVerifier(
@@ -197,6 +204,7 @@ def create_mcp_server() -> FastMCP:
             audience=settings.oauth_audience,
             jwks_cache_ttl=settings.jwks_cache_ttl,
         )
+        set_link_token_verifier(token_verifier)
 
         # Initialize credential store and session bridge
         encryption_key = settings.get_encryption_key()
@@ -254,6 +262,24 @@ def _get_transport() -> str:
     return settings.transport
 
 
+def build_link_routes() -> list:
+    """Link routes for the HTTP server, guarded by the same verifier and scopes as /mcp."""
+    from src.session import get_link_token_verifier, get_oauth_bridge
+
+    bridge = get_oauth_bridge()
+    if not bridge:
+        return []
+
+    from src.auth.link_routes import create_link_routes
+
+    return create_link_routes(
+        bridge.credential_store,
+        bridge=bridge,
+        token_verifier=get_link_token_verifier(),
+        required_scopes=settings.scopes_list,
+    )
+
+
 async def run_http_with_link_routes(mcp_server: FastMCP):
     """Run streamable HTTP server with link routes mounted alongside MCP.
 
@@ -271,17 +297,9 @@ async def run_http_with_link_routes(mcp_server: FastMCP):
     mcp_app = mcp_server.streamable_http_app()
 
     # Build link routes if credential store is available
-    extra_routes = []
-    from src.session import get_oauth_bridge
-
-    bridge = get_oauth_bridge()
-    if bridge:
-        from src.auth.link_routes import create_link_routes
-
-        link_routes = create_link_routes(bridge.credential_store, bridge=bridge)
-        if link_routes:
-            extra_routes = link_routes
-            logger.info(f"Mounted {len(link_routes)} link routes")
+    extra_routes = build_link_routes()
+    if extra_routes:
+        logger.info(f"Mounted {len(extra_routes)} link routes")
 
     # The session manager was created by streamable_http_app() but its
     # task group needs to be started via run(). Normally the MCP app's

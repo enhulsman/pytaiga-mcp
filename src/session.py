@@ -41,6 +41,21 @@ def get_oauth_bridge():
     return _oauth_bridge
 
 
+# Verifier that guards /mcp; the link routes reuse it for Bearer tokens.
+_link_token_verifier = None
+
+
+def set_link_token_verifier(verifier):
+    """Set the token verifier the link routes use (HTTP+OAuth mode)."""
+    global _link_token_verifier
+    _link_token_verifier = verifier
+
+
+def get_link_token_verifier():
+    """Get the token verifier for the link routes (None if not configured)."""
+    return _link_token_verifier
+
+
 def is_oauth_mode() -> bool:
     """Check if we're running in OAuth mode."""
     return _oauth_bridge is not None
